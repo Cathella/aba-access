@@ -1,9 +1,9 @@
 import { useState, useRef } from "react";
 import { useNavigate, useSearchParams } from "react-router";
 import { ArrowLeft, LogIn, AlertCircle, UserRound } from "lucide-react";
+import { useAuth } from "../../lib/auth-context";
 
 const PIN_LENGTH = 4;
-const MOCK_VALID_PIN = "1234";
 
 export function AUTH07EnterPINPage() {
   const navigate = useNavigate();
@@ -12,7 +12,9 @@ export function AUTH07EnterPINPage() {
 
   const [digits, setDigits] = useState<string[]>(Array(PIN_LENGTH).fill(""));
   const [error, setError] = useState(false);
+  const [loading, setLoading] = useState(false);
   const inputRefs = useRef<(HTMLInputElement | null)[]>([]);
+  const { signInWithPin } = useAuth();
 
   /* ── Digit-box handlers ── */
   function handleChange(index: number, value: string) {
@@ -55,12 +57,16 @@ export function AUTH07EnterPINPage() {
   const code = digits.join("");
   const isFilled = code.length === PIN_LENGTH;
 
-  function handleLogin() {
+  async function handleLogin() {
     if (!isFilled) return;
-    if (code === MOCK_VALID_PIN) {
+    setLoading(true);
+    try {
+      await signInWithPin(phone, code);
       navigate("/home-01");
-    } else {
+    } catch (err) {
       setError(true);
+    } finally {
+      setLoading(false);
     }
   }
 
@@ -158,20 +164,20 @@ export function AUTH07EnterPINPage() {
             Forgot PIN?
           </button>
 
-          {/* ── Sign In button ── */}
-          <button
-            onClick={handleLogin}
-            disabled={!isFilled}
-            className={`w-full min-h-[48px] rounded-xl flex items-center justify-center gap-2 border-[1.5px] transition-colors text-[15px] ${
-              isFilled
-                ? "bg-brand-primary-300 hover:bg-brand-primary-400 text-brand-neutral-900 border-brand-neutral-900"
-                : "bg-brand-primary-300/40 text-brand-neutral-900/40 border-transparent cursor-not-allowed"
-            }`}
-            style={{ fontWeight: 500 }}
-          >
-            <LogIn size={16} />
-            Log in
-          </button>
+{/* ── Sign In button ── */}
+           <button
+             onClick={handleLogin}
+             disabled={!isFilled || loading}
+             className={`w-full min-h-[48px] rounded-xl flex items-center justify-center gap-2 border-[1.5px] transition-colors text-[15px] ${
+               isFilled && !loading
+                 ? "bg-brand-primary-300 hover:bg-brand-primary-400 text-brand-neutral-900 border-brand-neutral-900"
+                 : "bg-brand-primary-300/40 text-brand-neutral-900/40 border-transparent cursor-not-allowed"
+             }`}
+             style={{ fontWeight: 500 }}
+           >
+             {loading ? "Logging in..." : "Log in"}
+             {!loading && <LogIn size={16} />}
+           </button>
         </div>
       </div>
     </div>

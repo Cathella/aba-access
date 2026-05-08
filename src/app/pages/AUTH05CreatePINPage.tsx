@@ -78,7 +78,9 @@ export function AUTH05CreatePINPage() {
         setTimeout(() => confirmRefs.current[0]?.focus(), 60);
         return;
       }
-      navigate(`/auth-06?mode=${mode}&phone=${encodeURIComponent(phone)}`);
+      // Save PIN to sessionStorage for next step
+      sessionStorage.setItem('newPin', pin.join(""));
+      navigate(`/auth-06b?mode=${mode}&phone=${encodeURIComponent(phone)}`);
     }
   }
 

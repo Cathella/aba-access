@@ -1,10 +1,10 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { useNavigate, useSearchParams } from "react-router";
 import { ArrowLeft, ShieldCheck, AlertCircle } from "lucide-react";
+import { useAuth } from "../../lib/auth-context";
 
 const CODE_LENGTH = 6;
 const TIMER_SECONDS = 40;
-const MOCK_VALID_CODE = "123456";
 
 export function AUTH03VerifyOTPPage() {
   const navigate = useNavigate();
@@ -14,9 +14,11 @@ export function AUTH03VerifyOTPPage() {
 
   const [digits, setDigits] = useState<string[]>(Array(CODE_LENGTH).fill(""));
   const [error, setError] = useState(false);
+  const [loading, setLoading] = useState(false);
   const [timer, setTimer] = useState(TIMER_SECONDS);
   const [canResend, setCanResend] = useState(false);
   const inputRefs = useRef<(HTMLInputElement | null)[]>([]);
+  const { verifyOtp } = useAuth();
 
   /* ── Countdown timer ── */
   useEffect(() => {
@@ -81,12 +83,16 @@ export function AUTH03VerifyOTPPage() {
   const code = digits.join("");
   const isFilled = code.length === CODE_LENGTH;
 
-  function handleVerify() {
+  async function handleVerify() {
     if (!isFilled) return;
-    if (code === MOCK_VALID_CODE) {
+    setLoading(true);
+    try {
+      await verifyOtp(phone, code);
       navigate(`/auth-04?mode=${mode}&phone=${encodeURIComponent(phone)}`);
-    } else {
+    } catch (err) {
       setError(true);
+    } finally {
+      setLoading(false);
     }
   }
 
@@ -190,15 +196,15 @@ export function AUTH03VerifyOTPPage() {
             )}
           </div>
 
-          {/* ── Verify button ── */}
-          <button
-            onClick={handleVerify}
-            disabled={!isFilled}
-            className={`w-full min-h-[48px] rounded-xl flex items-center justify-center border-[1.5px] transition-colors ${ isFilled ? "bg-brand-primary-300 hover:bg-brand-primary-400 text-brand-neutral-900 border-brand-neutral-900" : "bg-brand-primary-300/40 text-brand-neutral-900/40 border-transparent cursor-not-allowed" } text-[14px]`}
-            style={{ fontWeight: 500 }}
-          >
-            Verify
-          </button>
+{/* ── Verify button ── */}
+           <button
+             onClick={handleVerify}
+             disabled={!isFilled || loading}
+             className={`w-full min-h-[48px] rounded-xl flex items-center justify-center border-[1.5px] transition-colors ${ isFilled && !loading ? "bg-brand-primary-300 hover:bg-brand-primary-400 text-brand-neutral-900 border-brand-neutral-900" : "bg-brand-primary-300/40 text-brand-neutral-900/40 border-transparent cursor-not-allowed" } text-[14px]`}
+             style={{ fontWeight: 500 }}
+           >
+             {loading ? "Verifying..." : "Verify"}
+           </button>
         </div>
       </div>
     </div>

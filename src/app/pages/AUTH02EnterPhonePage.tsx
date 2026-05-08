@@ -1,18 +1,20 @@
 import { useState } from "react";
 import { useNavigate, useSearchParams } from "react-router";
 import { ArrowLeft, ArrowRight, Phone } from "lucide-react";
+import { useAuth } from "../../lib/auth-context";
 
 export function AUTH02EnterPhonePage() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
-  const mode = searchParams.get("mode") ?? "signup"; // "signup" | "login"
-
+  const mode = searchParams.get("mode") ?? "signup";
   const [phone, setPhone] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
+  const { signUp, signInWithPin } = useAuth();
 
   const isSignup = mode === "signup";
   const isValid = phone.replace(/\s/g, "").length >= 9;
 
-  /* ── Format as "700 000 000" while typing ── */
   function handlePhoneChange(raw: string) {
     const digits = raw.replace(/\D/g, "").slice(0, 9);
     let formatted = digits;
@@ -24,12 +26,22 @@ export function AUTH02EnterPhonePage() {
     setPhone(formatted);
   }
 
-  function handleContinue() {
+  async function handleContinue() {
     if (!isValid) return;
-    if (isSignup) {
-      navigate(`/auth-03?mode=signup&phone=${encodeURIComponent("+256 " + phone)}`);
-    } else {
-      navigate(`/auth-07?mode=login&phone=${encodeURIComponent("+256 " + phone)}`);
+    setLoading(true);
+    setError("");
+    try {
+      const fullPhone = "+256 " + phone;
+      if (isSignup) {
+        await signUp(fullPhone);
+        navigate(`/auth-03?mode=signup&phone=${encodeURIComponent(fullPhone)}`);
+      } else {
+        navigate(`/auth-07?mode=login&phone=${encodeURIComponent(fullPhone)}`);
+      }
+    } catch (err: any) {
+      setError(err.message || "Failed to send code");
+    } finally {
+      setLoading(false);
     }
   }
 
@@ -112,19 +124,26 @@ export function AUTH02EnterPhonePage() {
             We'll send a one-time code to verify your number.
           </p>
 
+          {/* ── Error message ── */}
+          {error && (
+            <p className="self-start text-[12px] text-brand-error-500 mb-4">
+              {error}
+            </p>
+          )}
+
           {/* ── Continue button ── */}
           <button
             onClick={handleContinue}
-            disabled={!isValid}
+            disabled={!isValid || loading}
             className={`w-full min-h-[48px] rounded-xl flex items-center justify-center gap-2 border-[1.5px] transition-colors text-[15px] ${
-              isValid
+              isValid && !loading
                 ? "bg-brand-primary-300 hover:bg-brand-primary-400 text-brand-neutral-900 border-brand-neutral-900"
                 : "bg-brand-primary-300/40 text-brand-neutral-900/40 border-transparent cursor-not-allowed"
             }`}
             style={{ fontWeight: 500 }}
           >
-            Continue
-            <ArrowRight size={16} />
+            {loading ? "Sending..." : "Continue"}
+            {!loading && <ArrowRight size={16} />}
           </button>
 
           {/* ── Need help? link ── */}

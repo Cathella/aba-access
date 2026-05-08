@@ -2,6 +2,7 @@ import { useState } from "react";
 import { useNavigate } from "react-router";
 import { ArrowLeft, ChevronDown, AlertTriangle, Info } from "lucide-react";
 import { toast } from "sonner";
+import { useAuth } from "../../lib/auth-context";
 import { saveProfile } from "../profileStore";
 
 /* ══════════════════════════════════════════════
@@ -27,6 +28,7 @@ const labelStyle =
 
 export function AUTH06BCompleteProfilePage() {
   const navigate = useNavigate();
+  const { completeProfile } = useAuth();
 
   /* ── Form state ── */
   const [fullName, setFullName] = useState("");
@@ -34,27 +36,44 @@ export function AUTH06BCompleteProfilePage() {
   const [areaTown, setAreaTown] = useState("");
   const [dob, setDob] = useState("");
   const [gender, setGender] = useState("");
+  const [loading, setLoading] = useState(false);
 
   /* ── Validation ── */
   const [showError, setShowError] = useState(false);
 
   const requiredMissing = !fullName.trim() || !district || !areaTown.trim();
 
-  function handleSave() {
+  async function handleSave() {
     if (requiredMissing) {
       setShowError(true);
       return;
     }
-    saveProfile({
-      fullName: fullName.trim(),
-      district,
-      areaTown: areaTown.trim(),
-      dob,
-      gender,
-      profileComplete: true,
-    });
-    toast.success("Profile saved");
-    navigate("/home-01");
+    setLoading(true);
+    try {
+      // Get PIN from sessionStorage
+      const pin = sessionStorage.getItem('newPin') || '';
+      await completeProfile({
+        fullName: fullName.trim(),
+        district,
+        areaTown: areaTown.trim(),
+        pin,
+      });
+      saveProfile({
+        fullName: fullName.trim(),
+        district,
+        areaTown: areaTown.trim(),
+        dob,
+        gender,
+        profileComplete: true,
+      });
+      sessionStorage.removeItem('newPin');
+      toast.success("Profile saved");
+      navigate("/home-01");
+    } catch (error) {
+      toast.error("Failed to save profile");
+    } finally {
+      setLoading(false);
+    }
   }
 
   function handleSkip() {
@@ -294,10 +313,11 @@ export function AUTH06BCompleteProfilePage() {
         {/* Primary CTA */}
         <button
           onClick={handleSave}
-          className="w-full h-[48px] rounded-xl text-[15px] flex items-center justify-center border-[1.5px] bg-brand-primary-300 hover:bg-brand-primary-400 text-brand-neutral-900 border-brand-neutral-900 transition-colors mb-3"
+          disabled={loading}
+          className="w-full h-[48px] rounded-xl text-[15px] flex items-center justify-center border-[1.5px] bg-brand-primary-300 hover:bg-brand-primary-400 text-brand-neutral-900 border-brand-neutral-900 transition-colors mb-3 disabled:opacity-60"
           style={{ fontWeight: 500 }}
         >
-          Save &amp; continue
+          {loading ? "Saving..." : "Save & continue"}
         </button>
 
         {/* Skip link */}
