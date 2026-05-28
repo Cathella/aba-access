@@ -1,4 +1,5 @@
 import { useNavigate } from "react-router";
+import { useAuth } from "../../lib/auth-context";
 import {
   Wallet,
   Clock,
@@ -17,17 +18,16 @@ import { BottomNav } from "../components/BottomNav";
    Constants
    ══════════════════════════════════════════════ */
 
-const ABA_ID = "ABA-000183";
-
 /* ══════════════════════════════════════════════
    Component
    ══════════════════════════════════════════════ */
 
 export function WAL01WalletHomePage() {
   const navigate = useNavigate();
+  const { profile } = useAuth();
 
   const copyId = () => {
-    navigator.clipboard.writeText(ABA_ID).then(
+    navigator.clipboard.writeText(profile.memberId || "").then(
       () => toast.success("ABA ID copied"),
       () => toast.error("Copy failed")
     );
@@ -94,7 +94,7 @@ export function WAL01WalletHomePage() {
                 className="text-[11px] text-brand-neutral-300"
                 style={{ fontWeight: 400 }}
               >
-                ABA ID: {ABA_ID}
+                ABA ID: {profile.memberId || "—"}
               </span>
               <Copy size={11} className="text-brand-neutral-500" />
             </button>

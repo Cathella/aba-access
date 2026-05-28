@@ -5,6 +5,7 @@ import { useAuth } from "../../lib/auth-context";
 
 const CODE_LENGTH = 6;
 const TIMER_SECONDS = 40;
+const DEV_MODE = import.meta.env.DEV;
 
 export function AUTH03VerifyOTPPage() {
   const navigate = useNavigate();
@@ -17,6 +18,7 @@ export function AUTH03VerifyOTPPage() {
   const [loading, setLoading] = useState(false);
   const [timer, setTimer] = useState(TIMER_SECONDS);
   const [canResend, setCanResend] = useState(false);
+  const [autoVerified, setAutoVerified] = useState(false);
   const inputRefs = useRef<(HTMLInputElement | null)[]>([]);
   const { verifyOtp } = useAuth();
 
@@ -96,6 +98,18 @@ export function AUTH03VerifyOTPPage() {
     }
   }
 
+  /* ── Auto-verify in dev mode ── */
+  useEffect(() => {
+    if (DEV_MODE && !autoVerified) {
+      // Simulate user entering a fixed code after a short delay
+      const timerId = setTimeout(() => {
+        setDigits(Array(CODE_LENGTH).fill("0"));
+        handleVerify();
+      }, 1000);
+      return () => clearTimeout(timerId);
+    }
+  }, [DEV_MODE, autoVerified, handleVerify]);
+
   return (
     <div className="min-h-screen bg-brand-neutral-100 flex flex-col items-center justify-center">
       {/* ── Back link ── */}
@@ -115,7 +129,7 @@ export function AUTH03VerifyOTPPage() {
       </div>
 
       {/* ── Card ── */}
-      <div className="mx-5 w-full flex justify-center">
+      <div className="mx-5 w-flex justify-center">
         <div className="max-w-[390px] bg-brand-neutral-0 border border-brand-neutral-200 rounded-2xl px-6 py-8 flex flex-col items-center">
           {/* Shield icon */}
           <div className="w-16 h-16 rounded-full bg-brand-secondary-50 flex items-center justify-center mb-5">
@@ -166,7 +180,7 @@ export function AUTH03VerifyOTPPage() {
                 onChange={(e) => handleChange(i, e.target.value)}
                 onKeyDown={(e) => handleKeyDown(i, e)}
                 onPaste={i === 0 ? handlePaste : undefined}
-                className={`w-full aspect-square max-w-[52px] text-center text-[20px] rounded-xl border-[1.5px] outline-none transition-colors bg-brand-neutral-0 ${ error ? "border-brand-error-500 text-brand-error-500" : digit ? "border-brand-neutral-900 text-brand-neutral-900" : "border-brand-neutral-200 text-brand-neutral-900" } focus:border-brand-neutral-900 px-[0px] py-[12px]`}
+                className={`w-full aspect-square max-w-[52px] text-center text-[20px] rounded-xl border-[1.5px] outline-none transition-colors bg-brand-neutral-0 ${ error ? "border-brand-error-500 text-brand-error-500" : digit ? "border-brand-neutral-900 text-brand-neutral-900" : "border-brand-neutral-200 text-brand-neutral-900" } focus:border-border-neutral-900 px-[0px] py-[12px]`}
                 style={{ fontWeight: 600, lineHeight: 1 }}
                 autoFocus={i === 0}
               />
@@ -196,15 +210,15 @@ export function AUTH03VerifyOTPPage() {
             )}
           </div>
 
-{/* ── Verify button ── */}
-           <button
-             onClick={handleVerify}
-             disabled={!isFilled || loading}
-             className={`w-full min-h-[48px] rounded-xl flex items-center justify-center border-[1.5px] transition-colors ${ isFilled && !loading ? "bg-brand-primary-300 hover:bg-brand-primary-400 text-brand-neutral-900 border-brand-neutral-900" : "bg-brand-primary-300/40 text-brand-neutral-900/40 border-transparent cursor-not-allowed" } text-[14px]`}
-             style={{ fontWeight: 500 }}
-           >
-             {loading ? "Verifying..." : "Verify"}
-           </button>
+          {/* ── Verify button ── */}
+          <button
+            onClick={handleVerify}
+            disabled={!isFilled || loading}
+            className={`w-full min-h-[48px] rounded-xl flex items-center justify-center border-[1.5px] transition-colors ${ isFilled && !loading ? "bg-brand-primary-300 hover:bg-brand-primary-400 text-brand-neutral-900 border-brand-neutral-900" : "bg-brand-primary-300/40 text-brand-neutral-900/40 border-transparent cursor-not-allowed" } text-[14px]`}
+            style={{ fontWeight: 500 }}
+          >
+            {loading ? "Verifying..." : "Verify"}
+          </button>
         </div>
       </div>
     </div>

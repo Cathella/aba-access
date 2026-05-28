@@ -22,6 +22,7 @@ import { useNavigate } from "react-router";
 import { useState } from "react";
 import { BottomNav } from "../components/BottomNav";
 import { getGreetingName } from "../profileStore";
+import { useAuth } from "../../lib/auth-context";
 import {
   BarChart,
   Bar,
@@ -171,6 +172,7 @@ const BAR_COLORS = [
 
 export function HOME01HomePage() {
   const navigate = useNavigate();
+  const { profile } = useAuth();
 
   /* Demo toggles — flip to see empty states */
   const [hasPackage] = useState(true);
@@ -179,8 +181,8 @@ export function HOME01HomePage() {
   const [visitsPeriod, setVisitsPeriod] = useState<"week" | "month">("week");
   const [abaIdHidden, setAbaIdHidden] = useState(false);
 
-  const ABA_ID = "ABA-000183";
-  const displayId = abaIdHidden ? "ABA-00•••" : ABA_ID;
+  const memberId = profile.memberId || "—";
+  const displayId = abaIdHidden ? `${memberId.slice(0, 6)}•••` : memberId;
 
   return (
     <div className="min-h-screen bg-brand-neutral-100 flex flex-col">

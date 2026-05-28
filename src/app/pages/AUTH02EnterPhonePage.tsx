@@ -26,7 +26,7 @@ export function AUTH02EnterPhonePage() {
     setPhone(formatted);
   }
 
-  async function handleContinue() {
+    async function handleContinue() {
     if (!isValid) return;
     setLoading(true);
     setError("");
@@ -34,7 +34,10 @@ export function AUTH02EnterPhonePage() {
       const fullPhone = "+256 " + phone;
       if (isSignup) {
         await signUp(fullPhone);
-        navigate(`/auth-03?mode=signup&phone=${encodeURIComponent(fullPhone)}`);
+        // Store phone for later steps (consent, PIN, profile)
+        sessionStorage.setItem('signupPhone', fullPhone);
+        // Go to consent screen
+        navigate(`/auth-04?mode=signup&phone=${encodeURIComponent(fullPhone)}`);
       } else {
         navigate(`/auth-07?mode=login&phone=${encodeURIComponent(fullPhone)}`);
       }

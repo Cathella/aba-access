@@ -68,7 +68,7 @@ export function AUTH06BCompleteProfilePage() {
       });
       sessionStorage.removeItem('newPin');
       toast.success("Profile saved");
-      navigate("/home-01");
+      navigate("/auth-06");
     } catch (error) {
       toast.error("Failed to save profile");
     } finally {
@@ -77,6 +77,7 @@ export function AUTH06BCompleteProfilePage() {
   }
 
   function handleSkip() {
+    sessionStorage.removeItem('newPin');
     navigate("/home-01");
   }
 
@@ -85,7 +86,7 @@ export function AUTH06BCompleteProfilePage() {
       {/* ══ App Bar (fixed) ══ */}
       <div className="fixed top-0 left-0 right-0 z-20 bg-brand-neutral-100 px-5 pt-6 pb-3 flex items-center gap-3 border-b border-brand-neutral-200">
         <button
-          onClick={() => navigate("/auth-06")}
+          onClick={() => navigate(-1)}
           className="w-8 h-8 rounded-full bg-brand-neutral-0 border border-brand-neutral-200 flex items-center justify-center"
         >
           <ArrowLeft size={16} className="text-brand-neutral-900" />

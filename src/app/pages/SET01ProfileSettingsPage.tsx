@@ -3,6 +3,7 @@ import { useNavigate } from "react-router";
 import { ArrowLeft, UserCircle, Copy, ChevronDown } from "lucide-react";
 import { toast } from "sonner";
 import { getProfile, saveProfile } from "../profileStore";
+import { useAuth } from "../../lib/auth-context";
 
 /* ══════════════════════════════════════════════
    Constants
@@ -42,15 +43,16 @@ const inputStyle = { borderRadius: 6 };
 
 export function SET01ProfileSettingsPage() {
   const navigate = useNavigate();
-  const profile = getProfile();
+  const { profile } = useAuth();
+  const localProfile = getProfile();
 
   /* ── Form state ── */
-  const [fullName, setFullName] = useState(profile.fullName || "Catherine Nakitto");
-  const phone = "+256 7XX XXX XXX"; // read-only
+  const [fullName, setFullName] = useState(profile.fullName || localProfile.fullName || "");
+  const phone = profile.phone || localProfile.phone || "";
   const [email, setEmail] = useState("");
-  const [district, setDistrict] = useState(profile.district || "");
-  const [areaTown, setAreaTown] = useState(profile.areaTown || "");
-  const [dob, setDob] = useState(profile.dob || "");
+  const [district, setDistrict] = useState(profile.district || localProfile.district || "");
+  const [areaTown, setAreaTown] = useState(profile.areaTown || localProfile.areaTown || "");
+  const [dob, setDob] = useState(profile.dob || localProfile.dob || "");
 
   const [emergencyName, setEmergencyName] = useState("");
   const [emergencyPhone, setEmergencyPhone] = useState("");
@@ -156,12 +158,12 @@ export function SET01ProfileSettingsPage() {
                   className="flex-1 text-brand-neutral-500"
                   style={{ fontWeight: 500, letterSpacing: "0.02em" }}
                 >
-                  ABA-000183
+                  {profile.memberId || "—"}
                 </span>
                 <button
                   type="button"
                   onClick={() => {
-                    navigator.clipboard.writeText("ABA-000183");
+                    navigator.clipboard.writeText(profile.memberId || "");
                     toast.success("ABA ID copied");
                   }}
                   className="w-7 h-7 rounded-lg flex items-center justify-center hover:bg-brand-neutral-200 transition-colors shrink-0"

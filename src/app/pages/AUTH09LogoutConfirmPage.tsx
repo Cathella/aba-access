@@ -1,8 +1,22 @@
+import { useState } from "react";
 import { useNavigate } from "react-router";
 import { LogOut } from "lucide-react";
+import { useAuth } from "../../lib/auth-context";
 
 export function AUTH09LogoutConfirmPage() {
   const navigate = useNavigate();
+  const { signOut } = useAuth();
+  const [loading, setLoading] = useState(false);
+
+  async function handleLogout() {
+    setLoading(true);
+    try {
+      await signOut();
+      navigate("/auth-01", { replace: true });
+    } finally {
+      setLoading(false);
+    }
+  }
 
   return (
     <div className="min-h-screen bg-brand-neutral-100 flex flex-col">
@@ -39,8 +53,9 @@ export function AUTH09LogoutConfirmPage() {
         <div className="flex items-center gap-3">
           {/* Secondary: Cancel */}
           <button
-            onClick={() => navigate("/more")}
-            className="flex-1 h-[48px] rounded-xl text-[15px] flex items-center justify-center border-[1.5px] bg-brand-neutral-0 hover:bg-brand-neutral-100 text-brand-neutral-900 border-brand-neutral-900 transition-colors"
+            onClick={() => navigate(-1)}
+            disabled={loading}
+            className="flex-1 h-[48px] rounded-xl text-[15px] flex items-center justify-center border-[1.5px] bg-brand-neutral-0 hover:bg-brand-neutral-100 text-brand-neutral-900 border-brand-neutral-900 transition-colors disabled:opacity-50"
             style={{ fontWeight: 500 }}
           >
             Cancel
@@ -48,11 +63,12 @@ export function AUTH09LogoutConfirmPage() {
 
           {/* Primary (destructive): Log out */}
           <button
-            onClick={() => navigate("/auth-01")}
-            className="flex-1 h-[48px] rounded-xl text-[15px] flex items-center justify-center border-[1.5px] bg-brand-error-50 hover:bg-brand-error-500/20 text-brand-neutral-900 border-brand-neutral-900 transition-colors"
+            onClick={handleLogout}
+            disabled={loading}
+            className="flex-1 h-[48px] rounded-xl text-[15px] flex items-center justify-center border-[1.5px] bg-brand-error-50 hover:bg-brand-error-500/20 text-brand-neutral-900 border-brand-neutral-900 transition-colors disabled:opacity-50"
             style={{ fontWeight: 500 }}
           >
-            Log out
+            {loading ? "Logging out..." : "Log out"}
           </button>
         </div>
       </div>

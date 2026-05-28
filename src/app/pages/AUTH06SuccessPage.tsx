@@ -1,15 +1,15 @@
 import { useState } from "react";
 import { useNavigate } from "react-router";
 import { CheckCircle, Copy, Check } from "lucide-react";
-
-const SAMPLE_ABA_ID = "ABA-000183";
+import { getProfile } from "../profileStore";
 
 export function AUTH06SuccessPage() {
   const navigate = useNavigate();
   const [copied, setCopied] = useState(false);
+  const memberId = getProfile().memberId || "ABA------";
 
   function handleCopy() {
-    navigator.clipboard.writeText(SAMPLE_ABA_ID).then(() => {
+    navigator.clipboard.writeText(memberId).then(() => {
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
     });
@@ -57,7 +57,7 @@ export function AUTH06SuccessPage() {
               className="text-[22px] tracking-[0.04em] text-brand-neutral-900"
               style={{ fontWeight: 600, letterSpacing: "0.04em" }}
             >
-              {SAMPLE_ABA_ID}
+              {memberId}
             </span>
             <button
               onClick={handleCopy}
@@ -117,7 +117,7 @@ export function AUTH06SuccessPage() {
 
         {/* Primary CTA */}
         <button
-          onClick={() => navigate("/auth-06b")}
+          onClick={() => navigate("/home-01")}
           className="flex-1 h-[48px] rounded-xl text-[15px] flex items-center justify-center border-[1.5px] bg-brand-primary-300 hover:bg-brand-primary-400 text-brand-neutral-900 border-brand-neutral-900 transition-colors"
           style={{ fontWeight: 500 }}
         >

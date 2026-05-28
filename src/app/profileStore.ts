@@ -9,6 +9,8 @@ export interface UserProfile {
   areaTown: string;
   dob: string;       // yyyy-mm-dd or empty
   gender: string;    // "Male" | "Female" | "Other" | ""
+  memberId: string;
+  phone: string;
   profileComplete: boolean;
 }
 
@@ -20,6 +22,8 @@ const defaultProfile: UserProfile = {
   areaTown: "",
   dob: "",
   gender: "",
+  memberId: "",
+  phone: "",
   profileComplete: false,
 };
 

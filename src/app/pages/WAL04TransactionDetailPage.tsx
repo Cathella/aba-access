@@ -1,4 +1,5 @@
 import { useNavigate, useParams } from "react-router";
+import { useAuth } from "../../lib/auth-context";
 import {
   ArrowLeft,
   ArrowDownLeft,
@@ -42,7 +43,6 @@ interface TxDetail {
   visitId?: string;
 }
 
-const ABA_ID = "ABA-000183";
 
 const txMap: Record<string, TxDetail> = {
   "TX-00091": {
@@ -133,6 +133,7 @@ function typeLabel(t: TxType) {
 export function WAL04TransactionDetailPage() {
   const navigate = useNavigate();
   const { txId } = useParams<{ txId: string }>();
+  const { profile } = useAuth();
   const [copied, setCopied] = useState(false);
 
   const tx = txMap[txId ?? ""];
@@ -166,7 +167,7 @@ export function WAL04TransactionDetailPage() {
   }
 
   const handleCopyId = () => {
-    navigator.clipboard.writeText(ABA_ID).then(
+    navigator.clipboard.writeText(profile.memberId || "—").then(
       () => {
         setCopied(true);
         setTimeout(() => setCopied(false), 2000);
@@ -267,7 +268,7 @@ export function WAL04TransactionDetailPage() {
                     className="text-[13px] text-brand-neutral-900"
                     style={{ fontWeight: 500 }}
                   >
-                    {ABA_ID}
+                    {profile.memberId || "—"}
                   </span>
                   {copied ? (
                     <Check size={13} className="text-brand-success-500" />
