@@ -1,4 +1,5 @@
 import { useNavigate, useSearchParams } from "react-router";
+import { useAuth } from "../../lib/auth-context";
 import {
   ArrowLeft,
   Stethoscope,
@@ -181,6 +182,7 @@ const patientToDepId: Record<string, string> = {
 export function CARE02VisitDetailPage() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
+  const { profile } = useAuth();
   const visitId = searchParams.get("id") || "visit-001";
   const data = visits[visitId] ?? visits["visit-001"];
 
@@ -323,11 +325,11 @@ export function CARE02VisitDetailPage() {
                     className="text-[12px] text-brand-neutral-900 font-mono"
                     style={{ fontWeight: 500 }}
                   >
-                    ABA-000183
+                    {profile.memberId || "—"}
                   </span>
                   <button
                     onClick={() => {
-                      navigator.clipboard.writeText("ABA-000183");
+                      navigator.clipboard.writeText(profile.memberId || "");
                       toast.success("ABA ID copied");
                     }}
                     className="w-6 h-6 rounded-md flex items-center justify-center hover:bg-brand-neutral-100 transition-colors"

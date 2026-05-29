@@ -1,4 +1,5 @@
 import { useNavigate, useSearchParams } from "react-router";
+import { useAuth } from "../../lib/auth-context";
 import {
   CheckCircle2,
   Stethoscope,
@@ -80,6 +81,7 @@ const facilityIcons: Record<ServiceType, typeof Stethoscope> = {
 export function APR04ApprovedSuccessPage() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
+  const { profile } = useAuth();
   const requestId = searchParams.get("id") || "req-001";
   const data = requests[requestId] ?? requests["req-001"];
 
@@ -220,11 +222,11 @@ export function APR04ApprovedSuccessPage() {
                     className="text-[12px] text-brand-neutral-900 font-mono"
                     style={{ fontWeight: 500 }}
                   >
-                    ABA-000183
+                    {profile.memberId || "—"}
                   </span>
                   <button
                     onClick={() => {
-                      navigator.clipboard.writeText("ABA-000183");
+                      navigator.clipboard.writeText(profile.memberId || "");
                       toast.success("ABA ID copied");
                     }}
                     className="w-6 h-6 rounded-md flex items-center justify-center hover:bg-brand-neutral-100 transition-colors"
