@@ -78,8 +78,8 @@ export function AUTH05CreatePINPage() {
         setTimeout(() => confirmRefs.current[0]?.focus(), 60);
         return;
       }
-      // Save PIN to sessionStorage for next step
-      sessionStorage.setItem('newPin', pin.join(""));
+      // Save PIN to localStorage — survives app backgrounding on mobile
+      localStorage.setItem('newPin', pin.join(""));
       navigate(`/auth-06b?mode=${mode}&phone=${encodeURIComponent(phone)}`);
     }
   }

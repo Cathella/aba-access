@@ -50,8 +50,7 @@ export function AUTH06BCompleteProfilePage() {
     }
     setLoading(true);
     try {
-      // Get PIN from sessionStorage
-      const pin = sessionStorage.getItem('newPin') || '';
+      const pin = localStorage.getItem('newPin') || sessionStorage.getItem('newPin') || '';
       await completeProfile({
         fullName: fullName.trim(),
         district,
@@ -66,6 +65,7 @@ export function AUTH06BCompleteProfilePage() {
         gender,
         profileComplete: true,
       });
+      localStorage.removeItem('newPin');
       sessionStorage.removeItem('newPin');
       toast.success("Profile saved");
       navigate("/auth-06");
@@ -76,8 +76,19 @@ export function AUTH06BCompleteProfilePage() {
     }
   }
 
-  function handleSkip() {
+  async function handleSkip() {
+    const pin = localStorage.getItem('newPin') || sessionStorage.getItem('newPin') || '';
+    localStorage.removeItem('newPin');
     sessionStorage.removeItem('newPin');
+    if (pin) {
+      // Create a minimal DB row so the account is usable for login
+      // Profile details can be completed later from Settings → Profile
+      try {
+        await completeProfile({ fullName: '', district: '', areaTown: '', pin });
+      } catch {
+        // best-effort — if this fails, the user's login will fail and they'll re-register
+      }
+    }
     navigate("/home-01");
   }
 

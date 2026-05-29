@@ -74,25 +74,25 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const signUp = async (phone: string) => {
     const cleanPhone = phone.replace(/\s/g, '')
-    sessionStorage.setItem('signupPhone', cleanPhone)
+    // localStorage persists if the app is backgrounded between signup steps
+    localStorage.setItem('signupPhone', cleanPhone)
 
     const { email, password } = phoneToCredentials(cleanPhone)
 
-    // Try creating the account first
-    const { data, error: signUpError } = await supabase.auth.signUp({
+    // Attempt account creation — ignore errors like "User already registered"
+    // so returning users (partial signups, re-registrations) fall through to signIn
+    const { data } = await supabase.auth.signUp({
       email,
       password,
       options: { data: { phone: cleanPhone } },
     })
-    if (signUpError) throw signUpError
 
-    // New user with email confirmation off — session is returned immediately
+    // New user with email confirmation off — session returned immediately
     if (data.session) return
 
-    // Returning user — Supabase returns no session on duplicate signup,
-    // so sign in directly instead
+    // Account already exists or signUp returned no session — sign in directly
     const { error } = await supabase.auth.signInWithPassword({ email, password })
-    if (error) throw error
+    if (error) throw new Error('Unable to access account. Please try again.')
   }
 
   const verifyOtp = async (_phone: string, _otp: string) => {
@@ -105,8 +105,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (!sessionData?.session) throw new Error('No active session — please sign up again')
 
     const realUser = sessionData.session.user
-    const phone = sessionStorage.getItem('signupPhone') || ''
-    const memberId = `ABA${Math.floor(100000 + Math.random() * 900000)}`
+    // Fall back to phone stored in Supabase user metadata in case localStorage was cleared
+    const phone = localStorage.getItem('signupPhone')
+      || (realUser.user_metadata?.phone as string | undefined)
+      || ''
+
+    // Preserve existing member_id if the user is re-completing their profile
+    const { data: existing } = await supabase
+      .from('users')
+      .select('member_id')
+      .maybeSingle()
+    const memberId = existing?.member_id || `ABA${Math.floor(100000 + Math.random() * 900000)}`
 
     const { error } = await supabase.from('users').upsert({
       id: realUser.id,
@@ -118,6 +127,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       area_town: areaTown || district,
     })
     if (error) throw new Error(`Failed to save profile: ${error.message} (code: ${error.code})`)
+
+    localStorage.removeItem('signupPhone')
 
     const updated = saveProfile({
       fullName,
@@ -161,8 +172,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const signOut = async () => {
     setUser(null)
     setSession(null)
-    setProfile(getProfile()) // reset to whatever is in localStorage
-    sessionStorage.removeItem('signupPhone')
+    setProfile(getProfile())
+    localStorage.removeItem('signupPhone')
+    localStorage.removeItem('newPin')
     await supabase.auth.signOut()
   }
 

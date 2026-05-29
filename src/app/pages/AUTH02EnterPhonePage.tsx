@@ -34,9 +34,6 @@ export function AUTH02EnterPhonePage() {
       const fullPhone = "+256 " + phone;
       if (isSignup) {
         await signUp(fullPhone);
-        // Store phone for later steps (consent, PIN, profile)
-        sessionStorage.setItem('signupPhone', fullPhone);
-        // Go to consent screen
         navigate(`/auth-04?mode=signup&phone=${encodeURIComponent(fullPhone)}`);
       } else {
         navigate(`/auth-07?mode=login&phone=${encodeURIComponent(fullPhone)}`);
@@ -124,7 +121,7 @@ export function AUTH02EnterPhonePage() {
             className="self-start text-[12px] text-brand-neutral-500 mb-6"
             style={{ fontWeight: 400, lineHeight: 1.5 }}
           >
-            We'll send a one-time code to verify your number.
+            {isSignup ? "Your number is used to create and identify your account." : "Enter the number you registered with."}
           </p>
 
           {/* ── Error message ── */}
