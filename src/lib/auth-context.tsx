@@ -79,20 +79,22 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     const { email, password } = phoneToCredentials(cleanPhone)
 
-    // Attempt account creation — ignore errors like "User already registered"
-    // so returning users (partial signups, re-registrations) fall through to signIn
+    // Ignore signUp errors entirely — "User already registered" (422) is expected
+    // when an auth account exists from a partial previous signup. What matters is
+    // whether a session was returned; if not, fall through to signInWithPassword.
     const { data } = await supabase.auth.signUp({
       email,
       password,
       options: { data: { phone: cleanPhone } },
     })
 
-    // New user with email confirmation off — session returned immediately
-    if (data.session) return
+    // New user — session returned immediately when email confirmation is OFF
+    // in Supabase Dashboard → Authentication → Providers → Email → Confirm email
+    if (data?.session) return
 
-    // Account already exists or signUp returned no session — sign in directly
-    const { error } = await supabase.auth.signInWithPassword({ email, password })
-    if (error) throw new Error('Unable to access account. Please try again.')
+    // No session: account already exists → sign in with same derived credentials
+    const { error: signInError } = await supabase.auth.signInWithPassword({ email, password })
+    if (signInError) throw signInError
   }
 
   const verifyOtp = async (_phone: string, _otp: string) => {
