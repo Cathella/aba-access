@@ -2,7 +2,7 @@ import { Navigate, Outlet } from "react-router"
 import { useAuth } from "../../lib/auth-context"
 
 export function PublicRoute() {
-  const { user, loading } = useAuth()
+  const { user, loading, profile } = useAuth()
 
   if (loading) {
     return (
@@ -12,7 +12,11 @@ export function PublicRoute() {
     )
   }
 
-  if (user) {
+  // Only redirect when signup is fully complete.
+  // A session alone is not enough — the user must have finished the onboarding flow.
+  // This prevents the race condition where onAuthStateChange fires mid-signup
+  // (after signUp creates the session) and redirects before the profile steps run.
+  if (user && profile.profileComplete) {
     return <Navigate to="/home-01" replace />
   }
 

@@ -77,6 +77,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     // localStorage persists if the app is backgrounded between signup steps
     localStorage.setItem('signupPhone', cleanPhone)
 
+    // Reset profileComplete so PublicRoute does not redirect mid-signup.
+    // Needed when a previous session left profileComplete=true in localStorage.
+    const reset = saveProfile({ profileComplete: false })
+    setProfile(reset)
+
     const { email, password } = phoneToCredentials(cleanPhone)
 
     // Ignore signUp errors entirely — "User already registered" (422) is expected
