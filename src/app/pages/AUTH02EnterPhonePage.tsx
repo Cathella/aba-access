@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useNavigate, useSearchParams } from "react-router";
+import { useNavigate, useSearchParams, Navigate } from "react-router";
 import { ArrowLeft, ArrowRight, Phone } from "lucide-react";
 import { useAuth } from "../../lib/auth-context";
 
@@ -10,7 +10,10 @@ export function AUTH02EnterPhonePage() {
   const [phone, setPhone] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
-  const { signUp, signInWithPin } = useAuth();
+  const { signUp, signInWithPin, user, profile } = useAuth();
+
+  // Redirect fully-registered users away (replaces PublicRoute behaviour for this route)
+  if (user && profile.profileComplete) return <Navigate to="/home-01" replace />;
 
   const isSignup = mode === "signup";
   const isValid = phone.replace(/\s/g, "").length >= 9;

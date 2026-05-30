@@ -87,13 +87,15 @@ export const router = createBrowserRouter([
     children: [
       { path: "/",        Component: AUTH01WelcomePage },
       { path: "/auth-01", Component: AUTH01WelcomePage },
-      { path: "/auth-02", Component: AUTH02EnterPhonePage },
       { path: "/auth-07", Component: AUTH07EnterPINPage },
     ],
   },
 
   // ── Signup & PIN reset flow ───────────────────────────────────────────────
   // No auth gate: user may or may not have a session during onboarding
+  // auth-02 is standalone (not inside PublicRoute) so onAuthStateChange mid-signup
+  // cannot trigger PublicRoute's redirect and abort the flow
+  { path: "/auth-02",  Component: AUTH02EnterPhonePage },
   { path: "/auth-03",  Component: AUTH03VerifyOTPPage },
   { path: "/auth-04",  Component: AUTH04ConsentPage },
   { path: "/auth-05",  Component: AUTH05CreatePINPage },
