@@ -99,10 +99,8 @@ export function PKG03CheckoutPage() {
     useState<PaymentMethod>("aba-wallet");
   const [agreed, setAgreed] = useState(false);
   const [showError, setShowError] = useState(false);
-  const [simulateFunds, setSimulateFunds] = useState(false);
 
-  /* Wallet balance logic */
-  const walletBalance = simulateFunds ? 200_000 : 0;
+  const walletBalance = 0;
   const packagePrice = parsePrice(pkg.price);
   const isWalletSelected = selectedPayment === "aba-wallet";
   const insufficientFunds = isWalletSelected && walletBalance < packagePrice;
@@ -301,28 +299,6 @@ export function PKG03CheckoutPage() {
               </button>
             </div>
 
-            {/* Prototype helper: simulate funds toggle */}
-            <div className="mt-3 pt-3 border-t border-dashed border-brand-neutral-200">
-              <button
-                type="button"
-                onClick={() => setSimulateFunds(!simulateFunds)}
-                className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[11px] transition-colors ${
-                  simulateFunds
-                    ? "bg-brand-success-50 text-brand-success-500"
-                    : "bg-brand-neutral-100 text-brand-neutral-500"
-                }`}
-                style={{ fontWeight: 500 }}
-              >
-                <div
-                  className={`w-3 h-3 rounded-full border ${
-                    simulateFunds
-                      ? "bg-brand-success-500 border-brand-success-500"
-                      : "bg-brand-neutral-0 border-brand-neutral-300"
-                  }`}
-                />
-                {simulateFunds ? "Funds simulated" : "Simulate funds"}
-              </button>
-            </div>
           </div>
         )}
 
