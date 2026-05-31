@@ -1,10 +1,5 @@
 import { useNavigate, useSearchParams } from "react-router";
-import {
-  CheckCircle2,
-  X,
-  Wallet,
-  ChevronRight,
-} from "lucide-react";
+import { CheckCircle2, X } from "lucide-react";
 
 const packageData: Record<
   string,
@@ -32,8 +27,6 @@ export function PKG04SuccessPage() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const packageId = searchParams.get("package") || "care-bundle-50k";
-  const paymentMethod = searchParams.get("method");
-  const isWalletPayment = paymentMethod === "aba-wallet";
 
   const pkg = packageData[packageId] || {
     displayName: packageId,
@@ -123,30 +116,6 @@ export function PKG04SuccessPage() {
           </div>
         </div>
 
-        {/* ── Paid via Aba Wallet row ── */}
-        {isWalletPayment && (
-          <div className="w-full bg-brand-neutral-0 border border-brand-neutral-200 rounded-2xl px-4 py-3.5 mb-6 flex items-center gap-3">
-            <div className="w-8 h-8 rounded-full bg-brand-primary-50 flex items-center justify-center shrink-0">
-              <Wallet size={15} className="text-brand-primary-500" />
-            </div>
-            <div className="flex-1 min-w-0">
-              <p
-                className="text-[13px] text-brand-neutral-900"
-                style={{ fontWeight: 500 }}
-              >
-                Paid via Aba Wallet
-              </p>
-            </div>
-            <button
-              onClick={() => navigate("/wal-04/TX-00091")}
-              className="inline-flex items-center gap-1 text-[12px] text-brand-primary-500 hover:text-brand-primary-400 transition-colors shrink-0"
-              style={{ fontWeight: 500 }}
-            >
-              View receipt
-              <ChevronRight size={12} />
-            </button>
-          </div>
-        )}
 
         {/* ── CTAs ── */}
         <div className="fixed bottom-0 left-0 right-0 px-5 pb-5 pt-3 bg-brand-neutral-0 border-t border-brand-neutral-200 flex gap-3">

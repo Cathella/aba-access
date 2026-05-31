@@ -10,6 +10,8 @@ import {
   ChevronRight,
   ArrowDownLeft,
 } from "lucide-react";
+import { supabase } from "../../lib/supabase";
+import { PACKAGE_CATALOG } from "../../lib/packageCatalog";
 
 const packageDetails: Record<
   string,
@@ -99,23 +101,48 @@ export function PKG03CheckoutPage() {
     useState<PaymentMethod>("aba-wallet");
   const [agreed, setAgreed] = useState(false);
   const [showError, setShowError] = useState(false);
-  const [simulateFunds, setSimulateFunds] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+  const [submitError, setSubmitError] = useState("");
 
-  /* Wallet balance logic */
-  const walletBalance = simulateFunds ? 200_000 : 0;
+  const walletBalance = 0;
   const packagePrice = parsePrice(pkg.price);
   const isWalletSelected = selectedPayment === "aba-wallet";
   const insufficientFunds = isWalletSelected && walletBalance < packagePrice;
 
-  const handleConfirm = () => {
+  const handleConfirm = async () => {
     if (insufficientFunds) return;
     if (!agreed) {
       setShowError(true);
       return;
     }
     setShowError(false);
-    const methodParam = isWalletSelected ? "&method=aba-wallet" : "";
-    navigate(`/pkg-04?package=${packageId}${methodParam}`);
+    setSubmitError("");
+    setSubmitting(true);
+    try {
+      const { data: sessionData } = await supabase.auth.getSession();
+      if (!sessionData?.session) throw new Error("No active session");
+
+      const catalogItem = PACKAGE_CATALOG[packageId];
+      const now = new Date();
+      const expiresAt = new Date(now);
+      expiresAt.setDate(expiresAt.getDate() + 30);
+
+      const { error } = await supabase.from("user_packages").insert({
+        user_id: sessionData.session.user.id,
+        package_id: packageId,
+        package_name: catalogItem.name,
+        price_ugx: catalogItem.priceUgx,
+        payment_method: selectedPayment,
+        expires_at: expiresAt.toISOString(),
+      });
+
+      if (error) throw error;
+      navigate(`/pkg-04?package=${packageId}`);
+    } catch {
+      setSubmitError("Failed to activate package. Please try again.");
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   const today = new Date();
@@ -301,28 +328,6 @@ export function PKG03CheckoutPage() {
               </button>
             </div>
 
-            {/* Prototype helper: simulate funds toggle */}
-            <div className="mt-3 pt-3 border-t border-dashed border-brand-neutral-200">
-              <button
-                type="button"
-                onClick={() => setSimulateFunds(!simulateFunds)}
-                className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[11px] transition-colors ${
-                  simulateFunds
-                    ? "bg-brand-success-50 text-brand-success-500"
-                    : "bg-brand-neutral-100 text-brand-neutral-500"
-                }`}
-                style={{ fontWeight: 500 }}
-              >
-                <div
-                  className={`w-3 h-3 rounded-full border ${
-                    simulateFunds
-                      ? "bg-brand-success-500 border-brand-success-500"
-                      : "bg-brand-neutral-0 border-brand-neutral-300"
-                  }`}
-                />
-                {simulateFunds ? "Funds simulated" : "Simulate funds"}
-              </button>
-            </div>
           </div>
         )}
 
@@ -405,7 +410,7 @@ export function PKG03CheckoutPage() {
           </label>
         </div>
 
-        {/* ── Error banner ── */}
+        {/* ── Error banners ── */}
         {showError && (
           <div className="bg-brand-error-50 border border-brand-error-200 rounded-xl px-4 py-3 flex items-start gap-2.5 mb-3">
             <AlertCircle
@@ -420,21 +425,35 @@ export function PKG03CheckoutPage() {
             </p>
           </div>
         )}
+        {submitError && (
+          <div className="bg-brand-error-50 border border-brand-error-200 rounded-xl px-4 py-3 flex items-start gap-2.5 mb-3">
+            <AlertCircle
+              size={16}
+              className="text-brand-error-500 shrink-0 mt-0.5"
+            />
+            <p
+              className="text-[13px] text-brand-error-500"
+              style={{ fontWeight: 500 }}
+            >
+              {submitError}
+            </p>
+          </div>
+        )}
       </div>
 
       {/* ── Sticky CTA ── */}
       <div className="fixed bottom-0 left-0 right-0 z-10 bg-brand-neutral-0 px-5 pt-3 pb-5 border-t border-brand-neutral-200">
         <button
           onClick={handleConfirm}
-          disabled={insufficientFunds}
+          disabled={insufficientFunds || submitting}
           className={`w-full h-12 border-[1.5px] rounded-xl text-[14px] flex items-center justify-center transition-colors ${
-            insufficientFunds
+            insufficientFunds || submitting
               ? "bg-brand-neutral-100 text-brand-neutral-400 border-brand-neutral-200 cursor-not-allowed"
               : "bg-brand-primary-300 hover:bg-brand-primary-400 text-brand-neutral-900 border-brand-neutral-900"
           }`}
           style={{ fontWeight: 500 }}
         >
-          Confirm purchase
+          {submitting ? "Activating…" : "Confirm purchase"}
         </button>
       </div>
     </div>

@@ -8,10 +8,6 @@ import { ComponentsPage } from "./pages/ComponentsPage"
 import { FlowsPackagesPage } from "./pages/FlowsPackagesPage"
 import { PKG01PackagesHomePage } from "./pages/PKG01PackagesHomePage"
 import { PKG02PackageDetailPage } from "./pages/PKG02PackageDetailPage"
-import { PKG02APackageDetailPage } from "./pages/PKG02APackageDetailPage"
-import { PKG02BPackageDetailPage } from "./pages/PKG02BPackageDetailPage"
-import { PKG02CPackageDetailPage } from "./pages/PKG02CPackageDetailPage"
-import { PKG02DPackageDetailPage } from "./pages/PKG02DPackageDetailPage"
 import { PKG03CheckoutPage } from "./pages/PKG03CheckoutPage"
 import { PKG04SuccessPage } from "./pages/PKG04SuccessPage"
 import { PKG05PackageDashboardPage } from "./pages/PKG05PackageDashboardPage"
@@ -122,10 +118,6 @@ export const router = createBrowserRouter([
 
       { path: "/pkg-01",          Component: PKG01PackagesHomePage },
       { path: "/pkg-02/:packageId", Component: PKG02PackageDetailPage },
-      { path: "/pkg-02a",         Component: PKG02APackageDetailPage },
-      { path: "/pkg-02b",         Component: PKG02BPackageDetailPage },
-      { path: "/pkg-02c",         Component: PKG02CPackageDetailPage },
-      { path: "/pkg-02d",         Component: PKG02DPackageDetailPage },
       { path: "/pkg-03",          Component: PKG03CheckoutPage },
       { path: "/pkg-04",          Component: PKG04SuccessPage },
       { path: "/pkg-05",          Component: PKG05PackageDashboardPage },

@@ -1,12 +1,11 @@
 import { useNavigate } from "react-router";
 import {
-  Search,
+  ArrowLeft,
   ChevronRight,
   Star,
   Info,
 } from "lucide-react";
 import { useState } from "react";
-import { BottomNav } from "../components/BottomNav";
 
 const filterChips = ["All", "Care Bundle", "Consultation", "Lab", "Pharmacy"];
 
@@ -66,24 +65,22 @@ export function PKG01PackagesHomePage() {
     <div className="min-h-screen bg-brand-neutral-100 flex flex-col">
       {/* ── A) Header (fixed) ── */}
       <div className="fixed top-0 left-0 right-0 z-10 bg-brand-neutral-100 px-5 pt-6 pb-3 border-b border-brand-neutral-200">
-        <div className="flex items-start justify-between gap-3">
-          <div>
-            <h2
-              className="text-[22px] tracking-[-0.01em] text-brand-neutral-900"
-              style={{ fontWeight: 600 }}
-            >
-              Packages
-            </h2>
-            <p
-              className="text-[13px] text-brand-neutral-500 mt-0.5"
-              style={{ fontWeight: 400 }}
-            >
-              Prepay care. Redeem at ABA Partner facilities.
-            </p>
-          </div>
+        <div className="flex items-center gap-3">
+          <button
+            onClick={() => navigate(-1)}
+            className="w-8 h-8 rounded-full bg-brand-neutral-0 border border-brand-neutral-200 flex items-center justify-center shrink-0"
+          >
+            <ArrowLeft size={16} className="text-brand-neutral-900" />
+          </button>
+          <h2
+            className="text-[17px] text-brand-neutral-900 flex-1"
+            style={{ fontWeight: 600 }}
+          >
+            Packages
+          </h2>
           <button
             onClick={() => navigate("/pkg-07")}
-            className="shrink-0 mt-1 text-[13px] text-brand-primary-500"
+            className="shrink-0 text-[13px] text-brand-primary-500"
             style={{ fontWeight: 500 }}
           >
             My packages
@@ -92,25 +89,9 @@ export function PKG01PackagesHomePage() {
       </div>
 
       {/* ── Scrollable content ── */}
-      <div className="flex-1 overflow-y-auto pt-24 pb-20">
-        {/* ── B) Search ── */}
-        <div className="px-5 pt-3 pb-2">
-          <div className="relative">
-            <Search
-              size={15}
-              className="absolute left-3.5 top-1/2 -translate-y-1/2 text-brand-neutral-500"
-            />
-            <input
-              type="text"
-              placeholder="Search packages"
-              className="w-full h-10 pl-10 pr-4 bg-brand-neutral-0 border border-brand-neutral-200 rounded-full text-[13px] text-brand-neutral-900 placeholder:text-brand-neutral-300"
-              readOnly
-            />
-          </div>
-        </div>
-
-        {/* ── C) Filter chips ── */}
-        <div className="px-5 pt-2 pb-3">
+      <div className="flex-1 overflow-y-auto pt-[72px] pb-6">
+        {/* ── B) Filter chips ── */}
+        <div className="px-5 pt-3 pb-3">
           <div className="flex gap-2 overflow-x-auto no-scrollbar">
             {filterChips.map((chip) => (
               <button
@@ -189,15 +170,7 @@ export function PKG01PackagesHomePage() {
 
               {/* CTA */}
               <button
-                onClick={() => {
-                  const routeMap: Record<string, string> = {
-                    "care-bundle-50k": "/pkg-02a",
-                    "consultation-only-50k": "/pkg-02b",
-                    "lab-only-30k": "/pkg-02c",
-                    "pharmacy-only-20k": "/pkg-02d",
-                  };
-                  navigate(routeMap[pkg.id] || `/pkg-02/${pkg.id}`);
-                }}
+                onClick={() => navigate(`/pkg-02/${pkg.id}`)}
                 className="w-full mt-1 pt-3 border-t border-brand-neutral-200 text-brand-primary-500 hover:text-brand-primary-600 text-[13px] flex items-center justify-center gap-1 transition-colors"
                 style={{ fontWeight: 500 }}
               >
@@ -233,8 +206,6 @@ export function PKG01PackagesHomePage() {
         </div>
       </div>
 
-      {/* ── Bottom Navigation (fixed) ── */}
-      <BottomNav activeTab="packages" />
     </div>
   );
 }

@@ -19,7 +19,9 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { useNavigate } from "react-router";
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { supabase } from "../../lib/supabase";
+import { PACKAGE_CATALOG, daysRemaining } from "../../lib/packageCatalog";
 import { BottomNav } from "../components/BottomNav";
 import { getGreetingName } from "../profileStore";
 import { useAuth } from "../../lib/auth-context";
@@ -35,37 +37,16 @@ import {
 } from "recharts";
 
 /* ══════════════════════════════════════════════
-   Active packages data
+   Types
    ══════════════════════════════════════════════ */
 
-const activePackages = [
-  {
-    id: "pkg-1",
-    name: "Care Bundle 50K",
-    validDays: 30,
-    benefits: [
-      { label: "Consult 6", icon: Stethoscope },
-      { label: "Lab 3", icon: FlaskConical },
-      { label: "Pharmacy cap 30k", icon: Pill },
-    ],
-    isPrimary: true,
-  },
-  {
-    id: "pkg-2",
-    name: "Lab Plus 20K",
-    remaining: "5 tests",
-  },
-  {
-    id: "pkg-3",
-    name: "Pharmacy Top-up",
-    remaining: "Cap 20k",
-  },
-  {
-    id: "pkg-4",
-    name: "Family Dental",
-    remaining: "2 visits",
-  },
-];
+type UserPackage = {
+  id: string
+  package_id: string
+  package_name: string
+  purchased_at: string
+  expires_at: string
+}
 
 /* ══════════════════════════════════════════════
    Quick actions data
@@ -174,8 +155,22 @@ export function HOME01HomePage() {
   const navigate = useNavigate();
   const { profile } = useAuth();
 
+  const [userPackages, setUserPackages] = useState<UserPackage[]>([]);
+  const [packagesLoading, setPackagesLoading] = useState(true);
+
+  useEffect(() => {
+    supabase
+      .from("user_packages")
+      .select("id, package_id, package_name, purchased_at, expires_at")
+      .gt("expires_at", new Date().toISOString())
+      .order("purchased_at", { ascending: false })
+      .then(({ data }) => {
+        setUserPackages(data ?? []);
+        setPackagesLoading(false);
+      });
+  }, []);
+
   /* Demo toggles — flip to see empty states */
-  const [hasPackage] = useState(true);
   const [hasPending] = useState(true);
   const [hasVisits] = useState(true);
   const [visitsPeriod, setVisitsPeriod] = useState<"week" | "month">("week");
@@ -222,8 +217,14 @@ export function HOME01HomePage() {
             1) Primary status card
            ───────────────────────────────────── */}
         <div className="px-5 pt-3 pb-4">
-          {hasPackage ? (() => {
-            const primary = activePackages.find((p) => p.isPrimary) ?? activePackages[0];
+          {packagesLoading ? (
+            <div className="h-20 flex items-center justify-center">
+              <div className="w-5 h-5 rounded-full border-2 border-brand-primary-500 border-t-transparent animate-spin" />
+            </div>
+          ) : userPackages.length > 0 ? (() => {
+            const primary = userPackages[0];
+            const catalog = PACKAGE_CATALOG[primary.package_id];
+            const daysLeft = daysRemaining(primary.expires_at);
 
             return (
               <>
@@ -247,14 +248,12 @@ export function HOME01HomePage() {
                 {/* Primary package card */}
                 <div className="bg-brand-neutral-900 rounded-2xl p-5">
                   <div className="flex items-start justify-between mb-1">
-                    <div>
-                      <p
-                        className="text-[11px] tracking-[0.06em] uppercase text-brand-neutral-500"
-                        style={{ fontWeight: 500 }}
-                      >
-                        Primary package
-                      </p>
-                    </div>
+                    <p
+                      className="text-[11px] tracking-[0.06em] uppercase text-brand-neutral-500"
+                      style={{ fontWeight: 500 }}
+                    >
+                      Primary package
+                    </p>
                     <span
                       className="inline-flex items-center px-2.5 py-0.5 rounded-full bg-brand-success-50 text-brand-success-500 text-[11px]"
                       style={{ fontWeight: 500 }}
@@ -267,20 +266,19 @@ export function HOME01HomePage() {
                     className="text-[18px] text-brand-neutral-0 mb-1.5"
                     style={{ fontWeight: 600 }}
                   >
-                    {primary.name}
+                    {catalog?.name ?? primary.package_name}
                   </h3>
 
                   <p
                     className="text-[12px] text-brand-neutral-500 mb-3"
                     style={{ fontWeight: 400 }}
                   >
-                    Valid for {primary.validDays} days
+                    Valid for {daysLeft} day{daysLeft !== 1 ? "s" : ""}
                   </p>
 
-                  {/* Mini usage row */}
-                  {primary.benefits && (
+                  {catalog?.benefits && (
                     <div className="flex items-center gap-2 mb-4 flex-wrap">
-                      {primary.benefits.map((u) => (
+                      {catalog.benefits.map((u) => (
                         <span
                           key={u.label}
                           className="inline-flex items-center gap-1 px-2 py-1 rounded-lg bg-brand-neutral-800 text-[11px] text-brand-neutral-300"
@@ -294,7 +292,7 @@ export function HOME01HomePage() {
                   )}
 
                   <button
-                    onClick={() => navigate("/pkg-05")}
+                    onClick={() => navigate(`/pkg-05?package=${primary.package_id}`)}
                     className="w-full h-10 bg-brand-primary-300 hover:bg-brand-primary-400 text-brand-neutral-900 border-[1.5px] border-brand-neutral-900 rounded-xl text-[13px] flex items-center justify-center gap-1 transition-colors"
                     style={{ fontWeight: 500 }}
                   >
@@ -302,16 +300,15 @@ export function HOME01HomePage() {
                     <ChevronRight size={14} />
                   </button>
 
-                  <p
-                    className="text-[10px] text-brand-neutral-500 text-center mt-3"
-                    style={{ fontWeight: 400, lineHeight: "14px" }}
-                  >
-                    Care Bundle or nearest expiry is shown first.
-                  </p>
+                  {userPackages.length > 1 && (
+                    <p
+                      className="text-[10px] text-brand-neutral-500 text-center mt-3"
+                      style={{ fontWeight: 400, lineHeight: "14px" }}
+                    >
+                      Most recently purchased package shown first.
+                    </p>
+                  )}
                 </div>
-
-                {/* Other active strip */}
-                {/* ... remove this code ... */}
               </>
             );
           })() : (
