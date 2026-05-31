@@ -9,6 +9,8 @@ import {
   ChevronRight,
 } from "lucide-react";
 import { useState, useEffect } from "react";
+import { supabase } from "../../lib/supabase";
+import { formatPackageDate } from "../../lib/packageCatalog";
 
 /* ── Package data keyed by slug ── */
 const packageData: Record<
@@ -56,6 +58,20 @@ export function PKG05PackageDashboardPage() {
   const packageId = searchParams.get("package") || "care-bundle-50k";
 
   const pkg = packageData[packageId] || packageData["care-bundle-50k"];
+
+  const [validity, setValidity] = useState<{ purchased_at: string; expires_at: string } | null>(null);
+
+  useEffect(() => {
+    supabase
+      .from("user_packages")
+      .select("purchased_at, expires_at")
+      .eq("package_id", packageId)
+      .gt("expires_at", new Date().toISOString())
+      .order("purchased_at", { ascending: false })
+      .limit(1)
+      .maybeSingle()
+      .then(({ data }) => setValidity(data));
+  }, [packageId]);
 
   /* Read dependent count from sessionStorage (kept in sync by DEP-01) */
   const [depCount, setDepCount] = useState(() => {
@@ -115,7 +131,9 @@ export function PKG05PackageDashboardPage() {
             className="text-[13px] text-brand-neutral-500"
             style={{ fontWeight: 400 }}
           >
-            Valid 18 Feb 2026 – 20 Mar 2026
+            {validity
+            ? `Valid ${formatPackageDate(validity.purchased_at)} – ${formatPackageDate(validity.expires_at)}`
+            : "—"}
           </p>
         </div>
 
