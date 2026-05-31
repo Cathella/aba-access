@@ -157,17 +157,24 @@ export function HOME01HomePage() {
 
   const [userPackages, setUserPackages] = useState<UserPackage[]>([]);
   const [packagesLoading, setPackagesLoading] = useState(true);
+  const [dependentsCount, setDependentsCount] = useState<number | null>(null);
 
   useEffect(() => {
-    supabase
-      .from("user_packages")
-      .select("id, package_id, package_name, purchased_at, expires_at")
-      .gt("expires_at", new Date().toISOString())
-      .order("purchased_at", { ascending: false })
-      .then(({ data }) => {
-        setUserPackages(data ?? []);
-        setPackagesLoading(false);
-      });
+    const now = new Date().toISOString();
+    Promise.all([
+      supabase
+        .from("user_packages")
+        .select("id, package_id, package_name, purchased_at, expires_at")
+        .gt("expires_at", now)
+        .order("purchased_at", { ascending: false }),
+      supabase
+        .from("dependents")
+        .select("id", { count: "exact", head: true }),
+    ]).then(([{ data: pkgs }, { count }]) => {
+      setUserPackages(pkgs ?? []);
+      setDependentsCount(count ?? 0);
+      setPackagesLoading(false);
+    });
   }, []);
 
   /* Demo toggles — flip to see empty states */
@@ -509,7 +516,7 @@ export function HOME01HomePage() {
                 className="text-[16px] text-brand-neutral-900 mb-3"
                 style={{ fontWeight: 600 }}
               >
-                0 / 3
+                {dependentsCount ?? "—"} / 3
               </p>
               <button
                 onClick={() => navigate("/dep-01")}
