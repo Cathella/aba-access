@@ -19,32 +19,27 @@ const packageDetails: Record<
     displayName: string;
     price: string;
     sharing: string;
-    backRoute: string;
   }
 > = {
   "care-bundle-50k": {
     displayName: "Care Bundle 50K",
     price: "UGX 50,000",
     sharing: "Up to 3 dependents",
-    backRoute: "/pkg-02a",
   },
   "consultation-only-50k": {
     displayName: "Consultation Only 50K",
     price: "UGX 50,000",
     sharing: "Up to 3 dependents",
-    backRoute: "/pkg-02b",
   },
   "lab-only-30k": {
     displayName: "Lab Only 30K",
     price: "UGX 30,000",
     sharing: "—",
-    backRoute: "/pkg-02c",
   },
   "pharmacy-only-20k": {
     displayName: "Pharmacy Only 20K",
     price: "UGX 20,000",
     sharing: "—",
-    backRoute: "/pkg-02d",
   },
 };
 
@@ -94,7 +89,6 @@ export function PKG03CheckoutPage() {
     displayName: packageId,
     price: "—",
     sharing: "—",
-    backRoute: "/pkg-01",
   };
 
   const [selectedPayment, setSelectedPayment] =
@@ -161,7 +155,7 @@ export function PKG03CheckoutPage() {
       {/* ── App Bar (fixed top) ── */}
       <div className="fixed top-0 left-0 right-0 z-10 bg-brand-neutral-100 px-5 pt-6 pb-3 flex items-center gap-3 border-b border-brand-neutral-200">
         <button
-          onClick={() => navigate(pkg.backRoute)}
+          onClick={() => navigate(-1)}
           className="w-8 h-8 rounded-full bg-brand-neutral-0 border border-brand-neutral-200 flex items-center justify-center"
         >
           <ArrowLeft size={16} className="text-brand-neutral-900" />

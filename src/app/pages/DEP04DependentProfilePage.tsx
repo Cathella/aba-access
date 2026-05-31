@@ -1,4 +1,5 @@
-import { useNavigate } from "react-router";
+import { useState, useEffect } from "react";
+import { useNavigate, useSearchParams } from "react-router";
 import {
   ArrowLeft,
   UserCircle,
@@ -6,32 +7,76 @@ import {
   CalendarDays,
   Heart,
   Pencil,
+  Trash2,
   ChevronRight,
   ClipboardList,
   AlertCircle,
 } from "lucide-react";
+import { supabase } from "../../lib/supabase";
 
-/* ══════════════════════════════════════════════
-   Sample data (Ben)
-   ══════════════════════════════════════════════ */
-
-const DEPENDENT = {
-  name: "Ben",
-  relationship: "Child",
-  dob: "15 Mar 2020",
-  age: 6,
-  gender: "Male",
-  status: "Active" as const,
-  allergies: "Peanuts",
-  conditions: "",
+type Dependent = {
+  id: string;
+  full_name: string;
+  relationship: string;
+  dob: string;
+  gender: string | null;
+  allergies: string | null;
+  conditions: string | null;
 };
 
-/* ══════════════════════════════════════════════
-   Component
-   ══════════════════════════════════════════════ */
+function computeAge(dob: string): number {
+  const birth = new Date(dob);
+  const today = new Date();
+  let age = today.getFullYear() - birth.getFullYear();
+  const m = today.getMonth() - birth.getMonth();
+  if (m < 0 || (m === 0 && today.getDate() < birth.getDate())) age--;
+  return Math.max(0, age);
+}
+
+function formatDob(dob: string): string {
+  return new Date(dob).toLocaleDateString("en-UG", {
+    day: "numeric",
+    month: "short",
+    year: "numeric",
+  });
+}
 
 export function DEP04DependentProfilePage() {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const depId = searchParams.get("id") ?? "";
+
+  const [dep, setDep] = useState<Dependent | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    if (!depId) { setLoading(false); return; }
+    supabase
+      .from("dependents")
+      .select("id, full_name, relationship, dob, gender, allergies, conditions")
+      .eq("id", depId)
+      .single()
+      .then(({ data }) => {
+        setDep(data ?? null);
+        setLoading(false);
+      });
+  }, [depId]);
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-brand-neutral-100 flex items-center justify-center">
+        <div className="w-5 h-5 rounded-full border-2 border-brand-primary-500 border-t-transparent animate-spin" />
+      </div>
+    );
+  }
+
+  if (!dep) {
+    return (
+      <div className="min-h-screen bg-brand-neutral-100 flex items-center justify-center px-5">
+        <p className="text-[13px] text-brand-neutral-500">Dependent not found.</p>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-brand-neutral-100 flex flex-col">
@@ -43,11 +88,8 @@ export function DEP04DependentProfilePage() {
         >
           <ArrowLeft size={16} className="text-brand-neutral-900" />
         </button>
-        <h2
-          className="text-[17px] text-brand-neutral-900"
-          style={{ fontWeight: 600 }}
-        >
-          {DEPENDENT.name}
+        <h2 className="text-[17px] text-brand-neutral-900" style={{ fontWeight: 600 }}>
+          {dep.full_name}
         </h2>
       </div>
 
@@ -63,24 +105,18 @@ export function DEP04DependentProfilePage() {
               </div>
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-2">
-                  <h3
-                    className="text-[16px] text-brand-neutral-900"
-                    style={{ fontWeight: 600 }}
-                  >
-                    {DEPENDENT.name}
+                  <h3 className="text-[16px] text-brand-neutral-900" style={{ fontWeight: 600 }}>
+                    {dep.full_name}
                   </h3>
                   <span
                     className="inline-flex items-center px-2 py-0.5 rounded-full bg-brand-success-50 text-[10px] text-brand-success-500 shrink-0"
                     style={{ fontWeight: 500 }}
                   >
-                    {DEPENDENT.status}
+                    Active
                   </span>
                 </div>
-                <p
-                  className="text-[13px] text-brand-neutral-500 mt-0.5"
-                  style={{ fontWeight: 400 }}
-                >
-                  {DEPENDENT.relationship}
+                <p className="text-[13px] text-brand-neutral-500 mt-0.5" style={{ fontWeight: 400 }}>
+                  {dep.relationship}
                 </p>
               </div>
             </div>
@@ -89,93 +125,57 @@ export function DEP04DependentProfilePage() {
             <div className="space-y-3 border-t border-brand-neutral-200 pt-4">
               {/* DOB / Age */}
               <div className="flex items-start gap-3">
-                <CalendarDays
-                  size={15}
-                  className="text-brand-neutral-400 mt-0.5 shrink-0"
-                />
+                <CalendarDays size={15} className="text-brand-neutral-400 mt-0.5 shrink-0" />
                 <div>
-                  <p
-                    className="text-[12px] text-brand-neutral-500"
-                    style={{ fontWeight: 500 }}
-                  >
+                  <p className="text-[12px] text-brand-neutral-500" style={{ fontWeight: 500 }}>
                     Date of birth
                   </p>
-                  <p
-                    className="text-[13px] text-brand-neutral-900 mt-0.5"
-                    style={{ fontWeight: 400 }}
-                  >
-                    {DEPENDENT.dob} (Age {DEPENDENT.age})
+                  <p className="text-[13px] text-brand-neutral-900 mt-0.5" style={{ fontWeight: 400 }}>
+                    {formatDob(dep.dob)} (Age {computeAge(dep.dob)})
                   </p>
                 </div>
               </div>
 
               {/* Gender */}
-              {DEPENDENT.gender && (
+              {dep.gender && (
                 <div className="flex items-start gap-3">
-                  <UserCircle
-                    size={15}
-                    className="text-brand-neutral-400 mt-0.5 shrink-0"
-                  />
+                  <UserCircle size={15} className="text-brand-neutral-400 mt-0.5 shrink-0" />
                   <div>
-                    <p
-                      className="text-[12px] text-brand-neutral-500"
-                      style={{ fontWeight: 500 }}
-                    >
+                    <p className="text-[12px] text-brand-neutral-500" style={{ fontWeight: 500 }}>
                       Gender
                     </p>
-                    <p
-                      className="text-[13px] text-brand-neutral-900 mt-0.5"
-                      style={{ fontWeight: 400 }}
-                    >
-                      {DEPENDENT.gender}
+                    <p className="text-[13px] text-brand-neutral-900 mt-0.5" style={{ fontWeight: 400 }}>
+                      {dep.gender}
                     </p>
                   </div>
                 </div>
               )}
 
-              {/* Notes preview (allergies) */}
-              {DEPENDENT.allergies && (
+              {/* Allergies */}
+              {dep.allergies && (
                 <div className="flex items-start gap-3">
-                  <AlertCircle
-                    size={15}
-                    className="text-brand-neutral-400 mt-0.5 shrink-0"
-                  />
+                  <AlertCircle size={15} className="text-brand-neutral-400 mt-0.5 shrink-0" />
                   <div>
-                    <p
-                      className="text-[12px] text-brand-neutral-500"
-                      style={{ fontWeight: 500 }}
-                    >
+                    <p className="text-[12px] text-brand-neutral-500" style={{ fontWeight: 500 }}>
                       Allergies
                     </p>
-                    <p
-                      className="text-[13px] text-brand-neutral-900 mt-0.5"
-                      style={{ fontWeight: 400 }}
-                    >
-                      {DEPENDENT.allergies}
+                    <p className="text-[13px] text-brand-neutral-900 mt-0.5" style={{ fontWeight: 400 }}>
+                      {dep.allergies}
                     </p>
                   </div>
                 </div>
               )}
 
               {/* Chronic conditions */}
-              {DEPENDENT.conditions && (
+              {dep.conditions && (
                 <div className="flex items-start gap-3">
-                  <Heart
-                    size={15}
-                    className="text-brand-neutral-400 mt-0.5 shrink-0"
-                  />
+                  <Heart size={15} className="text-brand-neutral-400 mt-0.5 shrink-0" />
                   <div>
-                    <p
-                      className="text-[12px] text-brand-neutral-500"
-                      style={{ fontWeight: 500 }}
-                    >
+                    <p className="text-[12px] text-brand-neutral-500" style={{ fontWeight: 500 }}>
                       Chronic conditions
                     </p>
-                    <p
-                      className="text-[13px] text-brand-neutral-900 mt-0.5"
-                      style={{ fontWeight: 400 }}
-                    >
-                      {DEPENDENT.conditions}
+                    <p className="text-[13px] text-brand-neutral-900 mt-0.5" style={{ fontWeight: 400 }}>
+                      {dep.conditions}
                     </p>
                   </div>
                 </div>
@@ -189,53 +189,33 @@ export function DEP04DependentProfilePage() {
           <div className="bg-brand-neutral-0 border border-brand-neutral-200 rounded-2xl p-5">
             <div className="flex items-center gap-2 mb-3">
               <Shield size={16} className="text-brand-secondary-500" />
-              <h3
-                className="text-[14px] text-brand-neutral-900"
-                style={{ fontWeight: 600 }}
-              >
+              <h3 className="text-[14px] text-brand-neutral-900" style={{ fontWeight: 600 }}>
                 Coverage
               </h3>
             </div>
-            <p
-              className="text-[13px] text-brand-neutral-700"
-              style={{ fontWeight: 400 }}
-            >
+            <p className="text-[13px] text-brand-neutral-700" style={{ fontWeight: 400 }}>
               Uses your active packages automatically
             </p>
-            <p
-              className="text-[11px] text-brand-neutral-500 mt-2"
-              style={{ fontWeight: 400 }}
-            >
+            <p className="text-[11px] text-brand-neutral-500 mt-2" style={{ fontWeight: 400 }}>
               Facilities will request approval before redeeming benefits.
             </p>
           </div>
         </div>
 
-        {/* ── Recent care (activity preview) ── */}
+        {/* ── Recent care ── */}
         <div className="px-5 pt-3">
           <div className="bg-brand-neutral-0 border border-brand-neutral-200 rounded-2xl p-5">
             <div className="flex items-center gap-2 mb-4">
               <ClipboardList size={16} className="text-brand-secondary-500" />
-              <h3
-                className="text-[14px] text-brand-neutral-900"
-                style={{ fontWeight: 600 }}
-              >
+              <h3 className="text-[14px] text-brand-neutral-900" style={{ fontWeight: 600 }}>
                 Recent care
               </h3>
             </div>
-
-            {/* Empty state */}
             <div className="flex flex-col items-center py-4">
               <div className="w-10 h-10 rounded-full bg-brand-neutral-100 flex items-center justify-center mb-3">
-                <ClipboardList
-                  size={18}
-                  className="text-brand-neutral-400"
-                />
+                <ClipboardList size={18} className="text-brand-neutral-400" />
               </div>
-              <p
-                className="text-[13px] text-brand-neutral-500 mb-4"
-                style={{ fontWeight: 400 }}
-              >
+              <p className="text-[13px] text-brand-neutral-500 mb-4" style={{ fontWeight: 400 }}>
                 No visits yet
               </p>
               <button
@@ -252,10 +232,18 @@ export function DEP04DependentProfilePage() {
       </div>
 
       {/* ══ Fixed Bottom Action Bar ══ */}
-      <div className="fixed bottom-0 left-0 right-0 z-10 bg-brand-neutral-0 border-t border-brand-neutral-200 px-5 pt-3 pb-5">
+      <div className="fixed bottom-0 left-0 right-0 z-10 bg-brand-neutral-0 border-t border-brand-neutral-200 px-5 pt-3 pb-5 flex gap-3">
         <button
-          onClick={() => navigate("/dep-03")}
-          className="w-full h-11 rounded-xl text-[14px] flex items-center justify-center gap-1.5 border-[1.5px] border-brand-neutral-900 bg-brand-primary-300 hover:bg-brand-primary-400 text-brand-neutral-900 transition-colors"
+          onClick={() => navigate(`/dep-06?id=${depId}&name=${encodeURIComponent(dep.full_name)}`)}
+          className="flex-1 h-11 rounded-xl text-[14px] flex items-center justify-center gap-1.5 border-[1.5px] border-brand-error-500 text-brand-error-500 bg-brand-neutral-0 hover:bg-brand-error-50 transition-colors"
+          style={{ fontWeight: 500 }}
+        >
+          <Trash2 size={14} />
+          Remove
+        </button>
+        <button
+          onClick={() => navigate(`/dep-03?id=${depId}`)}
+          className="flex-1 h-11 rounded-xl text-[14px] flex items-center justify-center gap-1.5 border-[1.5px] border-brand-neutral-900 bg-brand-primary-300 hover:bg-brand-primary-400 text-brand-neutral-900 transition-colors"
           style={{ fontWeight: 500 }}
         >
           <Pencil size={14} />
