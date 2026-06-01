@@ -48,6 +48,13 @@ type UserPackage = {
   expires_at: string
 }
 
+type PendingApproval = {
+  id: string
+  facility_name: string
+  service_type: string
+  patient_name: string
+}
+
 /* ══════════════════════════════════════════════
    Quick actions data
    ══════════════════════════════════════════════ */
@@ -125,22 +132,6 @@ const nearbyPartners = [
   },
 ];
 
-/* ══════════════════════════════════════════════
-   Visits chart data
-   ══════════════════════════════════════════════ */
-
-const visitsWeekData = [
-  { name: "Catherine", visits: 3 },
-  { name: "Ben", visits: 1 },
-  { name: "Grace", visits: 2 },
-];
-
-const visitsMonthData = [
-  { name: "Catherine", visits: 8 },
-  { name: "Ben", visits: 4 },
-  { name: "Grace", visits: 6 },
-];
-
 const BAR_COLORS = [
   "var(--brand-primary-400)",
   "var(--brand-secondary-400)",
@@ -159,6 +150,10 @@ export function HOME01HomePage() {
   const [packagesLoading, setPackagesLoading] = useState(true);
   const [dependentsCount, setDependentsCount] = useState<number | null>(null);
   const [upcomingBookingsCount, setUpcomingBookingsCount] = useState<number | null>(null);
+  const [pendingApproval, setPendingApproval] = useState<PendingApproval | null | undefined>(undefined);
+  const [pendingApprovalsCount, setPendingApprovalsCount] = useState<number>(0);
+  const [visitsWeekData, setVisitsWeekData] = useState<{ name: string; visits: number }[]>([]);
+  const [visitsMonthData, setVisitsMonthData] = useState<{ name: string; visits: number }[]>([]);
 
   useEffect(() => {
     const now = new Date().toISOString();
@@ -175,17 +170,60 @@ export function HOME01HomePage() {
         .from("bookings")
         .select("id", { count: "exact", head: true })
         .in("status", ["Pending", "Confirmed"]),
-    ]).then(([{ data: pkgs }, { count: depCount }, { count: bookingCount }]) => {
+      supabase
+        .from("approval_requests")
+        .select("id, facility_name, service_type, patient_name")
+        .eq("status", "Pending")
+        .gt("expires_at", now)
+        .order("created_at", { ascending: false })
+        .limit(1),
+      supabase
+        .from("approval_requests")
+        .select("id", { count: "exact", head: true })
+        .eq("status", "Pending")
+        .gt("expires_at", now),
+      (() => {
+        const startOfMonth = new Date();
+        startOfMonth.setDate(1);
+        startOfMonth.setHours(0, 0, 0, 0);
+        return supabase
+          .from("approval_requests")
+          .select("patient_name, responded_at")
+          .eq("status", "Approved")
+          .gte("responded_at", startOfMonth.toISOString());
+      })(),
+    ]).then(([{ data: pkgs }, { count: depCount }, { count: bookingCount }, { data: aprData }, { count: aprCount }, { data: visitsData }]) => {
       setUserPackages(pkgs ?? []);
       setDependentsCount(depCount ?? 0);
       setUpcomingBookingsCount(bookingCount ?? 0);
+      setPendingApproval(aprData?.[0] ?? null);
+      setPendingApprovalsCount(aprCount ?? 0);
+
+      // Compute week/month chart data from the same result set
+      const startOfWeek = new Date();
+      const day = startOfWeek.getDay();
+      startOfWeek.setDate(startOfWeek.getDate() - (day === 0 ? 6 : day - 1));
+      startOfWeek.setHours(0, 0, 0, 0);
+      const weekMs = startOfWeek.getTime();
+
+      const monthCounts = new Map<string, number>();
+      const weekCounts = new Map<string, number>();
+
+      for (const v of visitsData ?? []) {
+        const name = v.patient_name;
+        monthCounts.set(name, (monthCounts.get(name) ?? 0) + 1);
+        if (new Date(v.responded_at).getTime() >= weekMs) {
+          weekCounts.set(name, (weekCounts.get(name) ?? 0) + 1);
+        }
+      }
+
+      setVisitsMonthData(Array.from(monthCounts.entries()).map(([name, visits]) => ({ name, visits })));
+      setVisitsWeekData(Array.from(weekCounts.entries()).map(([name, visits]) => ({ name, visits })));
+
       setPackagesLoading(false);
     });
   }, []);
 
-  /* Demo toggles — flip to see empty states */
-  const [hasPending] = useState(true);
-  const [hasVisits] = useState(true);
   const [visitsPeriod, setVisitsPeriod] = useState<"week" | "month">("week");
   const [abaIdHidden, setAbaIdHidden] = useState(false);
 
@@ -402,41 +440,32 @@ export function HOME01HomePage() {
             APPROVALS
           </p>
 
-          {hasPending ? (
-            /* ── State B: Has pending ── */
+          {pendingApproval ? (
+            /* ── Has pending request ── */
             <div className="bg-brand-neutral-0 border border-brand-neutral-200 rounded-2xl p-4">
               <div className="flex items-start gap-3">
                 <div className="w-10 h-10 rounded-xl bg-brand-warning-50 flex items-center justify-center shrink-0">
-                  <ClipboardList
-                    size={18}
-                    className="text-brand-warning-500"
-                  />
+                  <ClipboardList size={18} className="text-brand-warning-500" />
                 </div>
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2 mb-0.5">
-                    <p
-                      className="text-[14px] text-brand-neutral-900 truncate"
-                      style={{ fontWeight: 500 }}
-                    >
-                      Mukono Family Clinic
+                    <p className="text-[14px] text-brand-neutral-900 truncate" style={{ fontWeight: 500 }}>
+                      {pendingApproval.facility_name}
                     </p>
-                    <span
-                      className="inline-flex items-center px-2 py-0.5 rounded-full bg-brand-warning-50 text-brand-warning-500 text-[10px] shrink-0"
-                      style={{ fontWeight: 500 }}
-                    >
+                    <span className="inline-flex items-center px-2 py-0.5 rounded-full bg-brand-warning-50 text-brand-warning-500 text-[10px] shrink-0" style={{ fontWeight: 500 }}>
                       Requested
                     </span>
                   </div>
-                  <p
-                    className="text-[12px] text-brand-neutral-500"
-                    style={{ fontWeight: 400 }}
-                  >
-                    Patient: Ben &middot; Consultation
+                  <p className="text-[12px] text-brand-neutral-500" style={{ fontWeight: 400 }}>
+                    {pendingApproval.patient_name} &middot; {pendingApproval.service_type}
+                    {pendingApprovalsCount > 1 && (
+                      <span className="text-brand-warning-500"> · +{pendingApprovalsCount - 1} more</span>
+                    )}
                   </p>
                 </div>
               </div>
               <button
-                onClick={() => navigate("/apr-02")}
+                onClick={() => navigate(`/apr-02?id=${pendingApproval.id}`)}
                 className="w-full mt-3 pt-3 border-t border-brand-neutral-200 text-brand-primary-500 hover:text-brand-primary-600 text-[13px] flex items-center justify-center gap-1 transition-colors"
                 style={{ fontWeight: 500 }}
               >
@@ -445,25 +474,16 @@ export function HOME01HomePage() {
               </button>
             </div>
           ) : (
-            /* ── State A: Empty ── */
+            /* ── No pending requests ── */
             <div className="bg-brand-neutral-0 border border-brand-neutral-200 rounded-2xl p-4 flex items-center gap-3">
               <div className="w-10 h-10 rounded-xl bg-brand-neutral-100 flex items-center justify-center shrink-0">
-                <ClipboardList
-                  size={18}
-                  className="text-brand-neutral-500"
-                />
+                <ClipboardList size={18} className="text-brand-neutral-500" />
               </div>
               <div>
-                <p
-                  className="text-[14px] text-brand-neutral-900"
-                  style={{ fontWeight: 500 }}
-                >
+                <p className="text-[14px] text-brand-neutral-900" style={{ fontWeight: 500 }}>
                   No pending approvals
                 </p>
-                <p
-                  className="text-[12px] text-brand-neutral-500 mt-0.5"
-                  style={{ fontWeight: 400 }}
-                >
+                <p className="text-[12px] text-brand-neutral-500 mt-0.5" style={{ fontWeight: 400 }}>
                   Requests from facilities will appear here.
                 </p>
               </div>
@@ -557,7 +577,7 @@ export function HOME01HomePage() {
           </div>
 
           <div className="bg-brand-neutral-0 border border-brand-neutral-200 rounded-2xl p-4">
-            {/* Timeline toggle */}
+            {/* Period toggle */}
             <div className="flex items-center gap-1 mb-4 bg-brand-neutral-100 rounded-lg p-0.5 w-fit ml-auto">
               {(["week", "month"] as const).map((period) => (
                 <button
@@ -575,100 +595,74 @@ export function HOME01HomePage() {
               ))}
             </div>
 
-            {/* Total summary */}
-            <div className="mb-3 flex items-baseline gap-2">
-              <p
-                className="text-[22px] text-brand-neutral-900"
-                style={{ fontWeight: 600 }}
-              >
-                {(visitsPeriod === "week" ? visitsWeekData : visitsMonthData).reduce(
-                  (sum, d) => sum + d.visits,
-                  0
-                )}
-              </p>
-              <p
-                className="text-[11px] text-brand-neutral-500"
-                style={{ fontWeight: 400 }}
-              >
-                total visits {visitsPeriod === "week" ? "this week" : "this month"}
-              </p>
-            </div>
+            {(() => {
+              const chartData = visitsPeriod === "week" ? visitsWeekData : visitsMonthData;
+              const total = chartData.reduce((sum, d) => sum + d.visits, 0);
 
-            {/* Bar chart */}
-            <div className="h-[140px] -ml-2">
-              <ResponsiveContainer width="100%" height="100%">
-                <BarChart
-                  data={visitsPeriod === "week" ? visitsWeekData : visitsMonthData}
-                  barCategoryGap="30%"
-                >
-                  <CartesianGrid
-                    strokeDasharray="3 3"
-                    vertical={false}
-                    stroke="var(--brand-neutral-200)"
-                  />
-                  <XAxis
-                    dataKey="name"
-                    axisLine={false}
-                    tickLine={false}
-                    tick={{ fontSize: 11, fill: "var(--brand-neutral-500)" }}
-                  />
-                  <YAxis
-                    allowDecimals={false}
-                    axisLine={false}
-                    tickLine={false}
-                    tick={{ fontSize: 10, fill: "var(--brand-neutral-400)" }}
-                    width={24}
-                  />
-                  <Tooltip
-                    cursor={{ fill: "var(--brand-neutral-100)" }}
-                    contentStyle={{
-                      borderRadius: 8,
-                      border: "1px solid var(--brand-neutral-200)",
-                      fontSize: 12,
-                      padding: "6px 10px",
-                    }}
-                    formatter={(value: number) => [`${value} visits`, ""]}
-                    labelStyle={{ fontSize: 11, fontWeight: 500 }}
-                  />
-                  <Bar dataKey="visits" radius={[6, 6, 0, 0]}>
-                    {(visitsPeriod === "week" ? visitsWeekData : visitsMonthData).map(
-                      (_, idx) => (
-                        <Cell
-                          key={`cell-${idx}`}
-                          fill={BAR_COLORS[idx % BAR_COLORS.length]}
-                        />
-                      )
-                    )}
-                  </Bar>
-                </BarChart>
-              </ResponsiveContainer>
-            </div>
-
-            {/* Legend */}
-            <div className="flex items-center gap-3 mt-3 flex-wrap">
-              {(visitsPeriod === "week" ? visitsWeekData : visitsMonthData).map(
-                (d, idx) => (
-                  <div key={d.name} className="flex items-center gap-1.5">
-                    <div
-                      className="w-2.5 h-2.5 rounded-full"
-                      style={{ backgroundColor: BAR_COLORS[idx % BAR_COLORS.length] }}
-                    />
-                    <span
-                      className="text-[11px] text-brand-neutral-600"
-                      style={{ fontWeight: 400 }}
-                    >
-                      {d.name}
-                    </span>
-                    <span
-                      className="text-[11px] text-brand-neutral-400"
-                      style={{ fontWeight: 500 }}
-                    >
-                      ({d.visits})
-                    </span>
+              if (packagesLoading) {
+                return (
+                  <div className="h-[140px] flex items-center justify-center">
+                    <div className="w-5 h-5 rounded-full border-2 border-brand-primary-500 border-t-transparent animate-spin" />
                   </div>
-                )
-              )}
-            </div>
+                );
+              }
+
+              if (chartData.length === 0) {
+                return (
+                  <div className="h-[140px] flex flex-col items-center justify-center gap-2">
+                    <Activity size={22} className="text-brand-neutral-300" />
+                    <p className="text-[12px] text-brand-neutral-400" style={{ fontWeight: 400 }}>
+                      No visits {visitsPeriod === "week" ? "this week" : "this month"} yet.
+                    </p>
+                  </div>
+                );
+              }
+
+              return (
+                <>
+                  {/* Total summary */}
+                  <div className="mb-3 flex items-baseline gap-2">
+                    <p className="text-[22px] text-brand-neutral-900" style={{ fontWeight: 600 }}>{total}</p>
+                    <p className="text-[11px] text-brand-neutral-500" style={{ fontWeight: 400 }}>
+                      total visit{total !== 1 ? "s" : ""} {visitsPeriod === "week" ? "this week" : "this month"}
+                    </p>
+                  </div>
+
+                  {/* Bar chart */}
+                  <div className="h-[140px] -ml-2">
+                    <ResponsiveContainer width="100%" height="100%">
+                      <BarChart data={chartData} barCategoryGap="30%">
+                        <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="var(--brand-neutral-200)" />
+                        <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fontSize: 11, fill: "var(--brand-neutral-500)" }} />
+                        <YAxis allowDecimals={false} axisLine={false} tickLine={false} tick={{ fontSize: 10, fill: "var(--brand-neutral-400)" }} width={24} />
+                        <Tooltip
+                          cursor={{ fill: "var(--brand-neutral-100)" }}
+                          contentStyle={{ borderRadius: 8, border: "1px solid var(--brand-neutral-200)", fontSize: 12, padding: "6px 10px" }}
+                          formatter={(value: number) => [`${value} visit${value !== 1 ? "s" : ""}`, ""]}
+                          labelStyle={{ fontSize: 11, fontWeight: 500 }}
+                        />
+                        <Bar dataKey="visits" radius={[6, 6, 0, 0]}>
+                          {chartData.map((_, idx) => (
+                            <Cell key={`cell-${idx}`} fill={BAR_COLORS[idx % BAR_COLORS.length]} />
+                          ))}
+                        </Bar>
+                      </BarChart>
+                    </ResponsiveContainer>
+                  </div>
+
+                  {/* Legend */}
+                  <div className="flex items-center gap-3 mt-3 flex-wrap">
+                    {chartData.map((d, idx) => (
+                      <div key={d.name} className="flex items-center gap-1.5">
+                        <div className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: BAR_COLORS[idx % BAR_COLORS.length] }} />
+                        <span className="text-[11px] text-brand-neutral-600" style={{ fontWeight: 400 }}>{d.name}</span>
+                        <span className="text-[11px] text-brand-neutral-400" style={{ fontWeight: 500 }}>({d.visits})</span>
+                      </div>
+                    ))}
+                  </div>
+                </>
+              );
+            })()}
           </div>
         </div>
 
