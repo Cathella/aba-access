@@ -158,6 +158,7 @@ export function HOME01HomePage() {
   const [userPackages, setUserPackages] = useState<UserPackage[]>([]);
   const [packagesLoading, setPackagesLoading] = useState(true);
   const [dependentsCount, setDependentsCount] = useState<number | null>(null);
+  const [upcomingBookingsCount, setUpcomingBookingsCount] = useState<number | null>(null);
 
   useEffect(() => {
     const now = new Date().toISOString();
@@ -170,9 +171,14 @@ export function HOME01HomePage() {
       supabase
         .from("dependents")
         .select("id", { count: "exact", head: true }),
-    ]).then(([{ data: pkgs }, { count }]) => {
+      supabase
+        .from("bookings")
+        .select("id", { count: "exact", head: true })
+        .in("status", ["Pending", "Confirmed"]),
+    ]).then(([{ data: pkgs }, { count: depCount }, { count: bookingCount }]) => {
       setUserPackages(pkgs ?? []);
-      setDependentsCount(count ?? 0);
+      setDependentsCount(depCount ?? 0);
+      setUpcomingBookingsCount(bookingCount ?? 0);
       setPackagesLoading(false);
     });
   }, []);
@@ -688,7 +694,11 @@ export function HOME01HomePage() {
                 className="text-[12px] text-brand-neutral-500 mt-0.5"
                 style={{ fontWeight: 400 }}
               >
-                2 upcoming visits
+                {upcomingBookingsCount === null
+                  ? "—"
+                  : upcomingBookingsCount === 0
+                  ? "No upcoming visits"
+                  : `${upcomingBookingsCount} upcoming visit${upcomingBookingsCount !== 1 ? "s" : ""}`}
               </p>
             </div>
             <ChevronRight size={16} className="text-brand-neutral-400 shrink-0" />
