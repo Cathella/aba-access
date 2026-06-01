@@ -1,5 +1,6 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect, useRef } from "react";
 import { useNavigate, useSearchParams } from "react-router";
+import { supabase } from "../../lib/supabase";
 import {
   ArrowLeft,
   Building2,
@@ -16,10 +17,11 @@ import {
   Send,
   Check,
 } from "lucide-react";
-import { BottomNav } from "../components/BottomNav";
+import { useAuth } from "../../lib/auth-context";
+import { getGreetingName } from "../profileStore";
 
 /* ══════════════════════════════════════════════
-   Data
+   Facility data
    ══════════════════════════════════════════════ */
 
 type FacilityType = "Clinic" | "Lab" | "Pharmacy";
@@ -42,7 +44,6 @@ const facilitiesMap: Record<string, FacilityInfo> = {
   f8: { id: "f8", name: "Bukoto Care Point", types: ["Clinic", "Pharmacy"], distance: "6.5 km" },
 };
 
-/* Map facility types → service labels */
 const typeToService: Record<FacilityType, string> = {
   Clinic: "Consultation",
   Lab: "Lab tests",
@@ -64,28 +65,46 @@ const serviceChipActive: Record<ServiceLabel, string> = {
   Pharmacy: "bg-brand-warning-50 text-brand-warning-500 border-brand-warning-300",
 };
 
-/* Patient data (mirrors DEP-01) */
+/* ══════════════════════════════════════════════
+   Patient type
+   ══════════════════════════════════════════════ */
+
 interface Patient {
   id: string;
   name: string;
   label: string;
 }
 
-const patients: Patient[] = [
-  { id: "member", name: "Catherine", label: "Member" },
-  { id: "dep-a", name: "Ben", label: "Child, 6 yrs" },
-  { id: "dep-b", name: "Anna", label: "Child, 10 yrs" },
-];
+/* ══════════════════════════════════════════════
+   Time windows
+   ══════════════════════════════════════════════ */
 
-/* Time windows */
 const timeWindows = [
   { id: "morning", label: "Morning", sub: "8 am – 12 pm" },
   { id: "afternoon", label: "Afternoon", sub: "12 pm – 5 pm" },
   { id: "evening", label: "Evening", sub: "5 pm – 9 pm" },
 ] as const;
 
-/* Date chips */
-const dateChips = ["Today", "Tomorrow", "Pick date"] as const;
+/* ══════════════════════════════════════════════
+   Helpers
+   ══════════════════════════════════════════════ */
+
+function computeAge(dob: string): number {
+  const birth = new Date(dob);
+  const today = new Date();
+  let age = today.getFullYear() - birth.getFullYear();
+  const m = today.getMonth() - birth.getMonth();
+  if (m < 0 || (m === 0 && today.getDate() < birth.getDate())) age--;
+  return Math.max(0, age);
+}
+
+function formatPickedDate(dateStr: string): string {
+  return new Date(dateStr + "T00:00:00").toLocaleDateString("en-UG", {
+    day: "numeric",
+    month: "short",
+    year: "numeric",
+  });
+}
 
 /* ══════════════════════════════════════════════
    Component
@@ -94,32 +113,63 @@ const dateChips = ["Today", "Tomorrow", "Pick date"] as const;
 export function BOOK01BookVisitPage() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
-  const facilityParam = searchParams.get("facility"); // e.g. "f1"
+  const facilityParam = searchParams.get("facility");
+  const { profile } = useAuth();
+
+  /* ── Patients (member + dependents from Supabase) ── */
+  const [patients, setPatients] = useState<Patient[]>([
+    { id: "member", name: getGreetingName(), label: "Member" },
+  ]);
+
+  useEffect(() => {
+    supabase
+      .from("dependents")
+      .select("id, full_name, relationship, dob")
+      .order("created_at", { ascending: true })
+      .then(({ data }) => {
+        if (!data?.length) return;
+        const memberName = profile?.firstName
+          ? `${profile.firstName}${profile.lastName ? " " + profile.lastName : ""}`
+          : getGreetingName();
+        setPatients([
+          { id: "member", name: memberName, label: "Member" },
+          ...data.map((dep) => ({
+            id: dep.id,
+            name: dep.full_name,
+            label: `${dep.relationship} · ${computeAge(dep.dob)} yrs`,
+          })),
+        ]);
+      });
+  }, []);
 
   /* ── Form state ── */
   const [selectedPatient, setSelectedPatient] = useState<string>("member");
   const [selectedService, setSelectedService] = useState<ServiceLabel | null>(null);
   const [selectedDate, setSelectedDate] = useState<string>("Today");
+  const [customDate, setCustomDate] = useState<string>("");
+  const [showDateInput, setShowDateInput] = useState(false);
   const [selectedTime, setSelectedTime] = useState<string>("morning");
   const [notes, setNotes] = useState("");
+  const dateInputRef = useRef<HTMLInputElement>(null);
+  const [submitting, setSubmitting] = useState(false);
+  const [submitError, setSubmitError] = useState("");
 
   /* ── Derived ── */
   const facility = facilityParam ? facilitiesMap[facilityParam] ?? null : null;
 
-  /* Available services based on facility */
   const availableServices = useMemo<ServiceLabel[]>(() => {
     if (!facility) return [...allServices];
     return facility.types.map((t) => typeToService[t]) as ServiceLabel[];
   }, [facility]);
 
-  /* If selected service isn't available for this facility, clear it */
   const effectiveService =
     selectedService && availableServices.includes(selectedService)
       ? selectedService
       : null;
 
-  /* Can submit? */
   const canSubmit = facility !== null && effectiveService !== null;
+
+  const isCustomDateSelected = selectedDate !== "Today" && selectedDate !== "Tomorrow";
 
   return (
     <div className="min-h-screen bg-brand-neutral-100 flex flex-col">
@@ -131,10 +181,7 @@ export function BOOK01BookVisitPage() {
         >
           <ArrowLeft size={16} className="text-brand-neutral-900" />
         </button>
-        <h2
-          className="text-[17px] text-brand-neutral-900"
-          style={{ fontWeight: 600 }}
-        >
+        <h2 className="text-[17px] text-brand-neutral-900" style={{ fontWeight: 600 }}>
           Book visit
         </h2>
       </div>
@@ -154,22 +201,15 @@ export function BOOK01BookVisitPage() {
 
           <div className="bg-brand-neutral-0 border border-brand-neutral-200 rounded-2xl p-4">
             {facility ? (
-              /* Facility selected */
               <div className="flex items-center gap-3.5">
                 <div className="w-10 h-10 rounded-xl bg-brand-primary-50 flex items-center justify-center shrink-0">
                   <Building2 size={18} className="text-brand-primary-500" />
                 </div>
                 <div className="flex-1 min-w-0">
-                  <p
-                    className="text-[14px] text-brand-neutral-900 truncate"
-                    style={{ fontWeight: 500 }}
-                  >
+                  <p className="text-[14px] text-brand-neutral-900 truncate" style={{ fontWeight: 500 }}>
                     {facility.name}
                   </p>
-                  <p
-                    className="text-[11px] text-brand-neutral-500 mt-0.5"
-                    style={{ fontWeight: 400 }}
-                  >
+                  <p className="text-[11px] text-brand-neutral-500 mt-0.5" style={{ fontWeight: 400 }}>
                     {facility.types.join(" · ")} · {facility.distance}
                   </p>
                 </div>
@@ -182,25 +222,15 @@ export function BOOK01BookVisitPage() {
                 </button>
               </div>
             ) : (
-              /* No facility selected */
-              <button
-                onClick={() => navigate("/fac-01")}
-                className="w-full flex items-center gap-3.5"
-              >
+              <button onClick={() => navigate("/fac-01")} className="w-full flex items-center gap-3.5">
                 <div className="w-10 h-10 rounded-xl bg-brand-neutral-100 flex items-center justify-center shrink-0">
                   <Building2 size={18} className="text-brand-neutral-400" />
                 </div>
                 <div className="flex-1 text-left">
-                  <p
-                    className="text-[14px] text-brand-neutral-400"
-                    style={{ fontWeight: 500 }}
-                  >
+                  <p className="text-[14px] text-brand-neutral-400" style={{ fontWeight: 500 }}>
                     Select facility
                   </p>
-                  <p
-                    className="text-[11px] text-brand-neutral-300 mt-0.5"
-                    style={{ fontWeight: 400 }}
-                  >
+                  <p className="text-[11px] text-brand-neutral-300 mt-0.5" style={{ fontWeight: 400 }}>
                     Choose where you'd like to visit
                   </p>
                 </div>
@@ -230,61 +260,33 @@ export function BOOK01BookVisitPage() {
                   key={p.id}
                   onClick={() => setSelectedPatient(p.id)}
                   className={`w-full flex items-center gap-3.5 px-4 py-3.5 text-left transition-colors ${
-                    i < patients.length - 1
-                      ? "border-b border-brand-neutral-200"
-                      : ""
+                    i < patients.length - 1 ? "border-b border-brand-neutral-200" : ""
                   } ${isSelected ? "bg-brand-primary-50/30" : "hover:bg-brand-neutral-50"}`}
                 >
-                  {/* Avatar */}
                   <div
                     className={`w-9 h-9 rounded-full flex items-center justify-center shrink-0 ${
-                      isSelected
-                        ? "bg-brand-primary-50"
-                        : "bg-brand-neutral-100"
+                      isSelected ? "bg-brand-primary-50" : "bg-brand-neutral-100"
                     }`}
                   >
                     {isMember ? (
-                      <User
-                        size={16}
-                        className={
-                          isSelected
-                            ? "text-brand-primary-500"
-                            : "text-brand-neutral-500"
-                        }
-                      />
+                      <User size={16} className={isSelected ? "text-brand-primary-500" : "text-brand-neutral-500"} />
                     ) : (
-                      <Users
-                        size={16}
-                        className={
-                          isSelected
-                            ? "text-brand-primary-500"
-                            : "text-brand-neutral-500"
-                        }
-                      />
+                      <Users size={16} className={isSelected ? "text-brand-primary-500" : "text-brand-neutral-500"} />
                     )}
                   </div>
 
-                  {/* Name + label */}
                   <div className="flex-1 min-w-0">
                     <p
-                      className={`text-[13px] truncate ${
-                        isSelected
-                          ? "text-brand-primary-500"
-                          : "text-brand-neutral-900"
-                      }`}
+                      className={`text-[13px] truncate ${isSelected ? "text-brand-primary-500" : "text-brand-neutral-900"}`}
                       style={{ fontWeight: 500 }}
                     >
                       {p.name}
                     </p>
-                    <p
-                      className="text-[11px] text-brand-neutral-500 mt-0.5"
-                      style={{ fontWeight: 400 }}
-                    >
+                    <p className="text-[11px] text-brand-neutral-500 mt-0.5" style={{ fontWeight: 400 }}>
                       {p.label}
                     </p>
                   </div>
 
-                  {/* Check indicator */}
                   {isSelected && (
                     <div className="w-5 h-5 rounded-full bg-brand-primary-500 flex items-center justify-center shrink-0">
                       <Check size={12} className="text-brand-neutral-0" />
@@ -295,10 +297,7 @@ export function BOOK01BookVisitPage() {
             })}
           </div>
 
-          <p
-            className="text-[11px] text-brand-neutral-400 mt-2 px-1"
-            style={{ fontWeight: 400 }}
-          >
+          <p className="text-[11px] text-brand-neutral-400 mt-2 px-1" style={{ fontWeight: 400 }}>
             Bookings can be made for your dependents.
           </p>
         </div>
@@ -343,10 +342,7 @@ export function BOOK01BookVisitPage() {
             </div>
 
             {facility && availableServices.length < 3 && (
-              <p
-                className="text-[11px] text-brand-neutral-400 mt-3"
-                style={{ fontWeight: 400 }}
-              >
+              <p className="text-[11px] text-brand-neutral-400 mt-3" style={{ fontWeight: 400 }}>
                 Only services offered by {facility.name} are shown.
               </p>
             )}
@@ -366,15 +362,17 @@ export function BOOK01BookVisitPage() {
 
           <div className="bg-brand-neutral-0 border border-brand-neutral-200 rounded-2xl p-4">
             {/* Date chips */}
-            <div className="flex items-center gap-2 mb-4">
-              <CalendarDays
-                size={14}
-                className="text-brand-neutral-400 shrink-0"
-              />
-              {dateChips.map((d) => (
+            <div className="flex items-center gap-2 mb-4 flex-wrap">
+              <CalendarDays size={14} className="text-brand-neutral-400 shrink-0" />
+
+              {(["Today", "Tomorrow"] as const).map((d) => (
                 <button
                   key={d}
-                  onClick={() => setSelectedDate(d)}
+                  onClick={() => {
+                    setSelectedDate(d);
+                    setCustomDate("");
+                    setShowDateInput(false);
+                  }}
                   className={`px-3 py-1.5 rounded-lg text-[12px] transition-colors ${
                     selectedDate === d
                       ? "bg-brand-neutral-900 text-brand-neutral-0"
@@ -385,16 +383,46 @@ export function BOOK01BookVisitPage() {
                   {d}
                 </button>
               ))}
+
+              <button
+                onClick={() => setShowDateInput(true)}
+                className={`px-3 py-1.5 rounded-lg text-[12px] transition-colors ${
+                  isCustomDateSelected
+                    ? "bg-brand-neutral-900 text-brand-neutral-0"
+                    : "bg-brand-neutral-100 text-brand-neutral-700 hover:bg-brand-neutral-200"
+                }`}
+                style={{ fontWeight: 500 }}
+              >
+                {customDate ? formatPickedDate(customDate) : "Pick date"}
+              </button>
             </div>
+
+            {/* Visible date input — shown when "Pick date" is tapped */}
+            {showDateInput && (
+              <div className="mb-4 -mt-1">
+                <input
+                  ref={dateInputRef}
+                  type="date"
+                  autoFocus
+                  className="w-full h-10 px-3 bg-brand-neutral-50 border border-brand-neutral-200 rounded-xl text-[13px] text-brand-neutral-900 focus:outline-none focus:border-brand-primary-300 transition-colors"
+                  min={new Date().toISOString().split("T")[0]}
+                  value={customDate}
+                  onChange={(e) => {
+                    if (e.target.value) {
+                      setCustomDate(e.target.value);
+                      setSelectedDate(e.target.value);
+                      setShowDateInput(false);
+                    }
+                  }}
+                />
+              </div>
+            )}
 
             {/* Time window */}
             <div className="space-y-2 mb-4">
               <div className="flex items-center gap-2 mb-1">
                 <Clock size={14} className="text-brand-neutral-400" />
-                <p
-                  className="text-[12px] text-brand-neutral-500"
-                  style={{ fontWeight: 500 }}
-                >
+                <p className="text-[12px] text-brand-neutral-500" style={{ fontWeight: 500 }}>
                   Time window
                 </p>
               </div>
@@ -413,19 +441,12 @@ export function BOOK01BookVisitPage() {
                   >
                     <div>
                       <p
-                        className={`text-[13px] ${
-                          isActive
-                            ? "text-brand-primary-500"
-                            : "text-brand-neutral-900"
-                        }`}
+                        className={`text-[13px] ${isActive ? "text-brand-primary-500" : "text-brand-neutral-900"}`}
                         style={{ fontWeight: 500 }}
                       >
                         {tw.label}
                       </p>
-                      <p
-                        className="text-[11px] text-brand-neutral-500 mt-0.5"
-                        style={{ fontWeight: 400 }}
-                      >
+                      <p className="text-[11px] text-brand-neutral-500 mt-0.5" style={{ fontWeight: 400 }}>
                         {tw.sub}
                       </p>
                     </div>
@@ -443,10 +464,7 @@ export function BOOK01BookVisitPage() {
             <div>
               <div className="flex items-center gap-2 mb-1.5">
                 <FileText size={14} className="text-brand-neutral-400" />
-                <label
-                  className="text-[12px] text-brand-neutral-500"
-                  style={{ fontWeight: 500 }}
-                >
+                <label className="text-[12px] text-brand-neutral-500" style={{ fontWeight: 500 }}>
                   Reason / notes (optional)
                 </label>
               </div>
@@ -461,27 +479,18 @@ export function BOOK01BookVisitPage() {
           </div>
         </div>
 
-        {/* ─────────────────────────────────────
-            Coverage hint card
-           ───────────────────────────────────── */}
+        {/* Coverage hint */}
         <div className="px-5 pt-4 pb-4">
           <div className="bg-brand-primary-50 border border-brand-primary-100 rounded-2xl px-4 py-3.5 flex items-start gap-3">
             <div className="w-8 h-8 rounded-lg bg-brand-primary-100 flex items-center justify-center shrink-0 mt-0.5">
               <Info size={15} className="text-brand-primary-500" />
             </div>
             <div>
-              <p
-                className="text-[13px] text-brand-neutral-900 mb-0.5"
-                style={{ fontWeight: 500 }}
-              >
+              <p className="text-[13px] text-brand-neutral-900 mb-0.5" style={{ fontWeight: 500 }}>
                 Coverage check
               </p>
-              <p
-                className="text-[12px] text-brand-neutral-700"
-                style={{ fontWeight: 400, lineHeight: "17px" }}
-              >
-                If you have an active package, the facility will apply the best
-                one during care. Otherwise you can pay out-of-pocket.
+              <p className="text-[12px] text-brand-neutral-700" style={{ fontWeight: 400, lineHeight: "17px" }}>
+                If you have an active package, the facility will apply the best one during care. Otherwise you can pay out-of-pocket.
               </p>
             </div>
           </div>
@@ -489,27 +498,57 @@ export function BOOK01BookVisitPage() {
       </div>
 
       {/* ══ Sticky bottom CTA ══ */}
-      <div className="fixed bottom-0 left-0 right-0 z-20 bg-brand-neutral-0 border-t border-brand-neutral-200 px-5 pt-3 pb-4">
+      <div className="fixed bottom-0 left-0 right-0 z-20 bg-brand-neutral-0 border-t border-brand-neutral-200 px-5 pt-3 pb-4 space-y-2">
+        {submitError && (
+          <p className="text-[12px] text-brand-error-500 text-center" style={{ fontWeight: 400 }}>
+            {submitError}
+          </p>
+        )}
         <button
-          disabled={!canSubmit}
-          onClick={() =>
-            navigate(
-              `/book-02?facility=${facility?.id ?? ""}&patient=${selectedPatient}&service=${effectiveService ?? ""}&date=${selectedDate}&time=${selectedTime}`
-            )
-          }
+          disabled={!canSubmit || submitting}
+          onClick={async () => {
+            if (!canSubmit || submitting) return;
+            setSubmitError("");
+            setSubmitting(true);
+            try {
+              const { data: sessionData } = await supabase.auth.getSession();
+              if (!sessionData?.session) throw new Error("No session");
+              const patientName = patients.find((p) => p.id === selectedPatient)?.name ?? "";
+              const { data, error } = await supabase
+                .from("bookings")
+                .insert({
+                  user_id: sessionData.session.user.id,
+                  facility_id: facility!.id,
+                  facility_name: facility!.name,
+                  patient_id: selectedPatient,
+                  patient_name: patientName,
+                  service: effectiveService!,
+                  preferred_date: selectedDate,
+                  preferred_time: selectedTime,
+                  notes: notes.trim() || null,
+                  status: "Pending",
+                })
+                .select("id")
+                .single();
+              if (error) throw error;
+              navigate(`/book-02?id=${data.id}`);
+            } catch {
+              setSubmitError("Failed to send request. Please try again.");
+            } finally {
+              setSubmitting(false);
+            }
+          }}
           className={`w-full h-11 rounded-xl text-[14px] flex items-center justify-center gap-1.5 border-[1.5px] transition-colors ${
-            canSubmit
+            canSubmit && !submitting
               ? "bg-brand-primary-300 hover:bg-brand-primary-400 text-brand-neutral-900 border-brand-neutral-900"
               : "bg-brand-neutral-200 text-brand-neutral-400 border-brand-neutral-200 cursor-not-allowed"
           }`}
           style={{ fontWeight: 500 }}
         >
           <Send size={14} />
-          Send booking request
+          {submitting ? "Sending…" : "Send booking request"}
         </button>
       </div>
-
-      {/* ══ Bottom Navigation ══ */}
     </div>
   );
 }

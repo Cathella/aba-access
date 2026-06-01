@@ -11,7 +11,6 @@ import {
   Navigation,
   CalendarPlus,
 } from "lucide-react";
-import { BottomNav } from "../components/BottomNav";
 
 /* ══════════════════════════════════════════════
    Types
@@ -555,7 +554,7 @@ export function FAC02FacilityProfilePage() {
       </div>
 
       {/* ══ Sticky bottom CTA ══ */}
-      <div className="fixed bottom-[68px] left-0 right-0 z-20 bg-brand-neutral-0 border-t border-brand-neutral-200 px-5 pt-3 pb-4">
+      <div className="fixed bottom-0 left-0 right-0 z-20 bg-brand-neutral-0 border-t border-brand-neutral-200 px-5 pt-3 pb-5">
         <button
           onClick={() =>
             navigate(`/book-01?facility=${facility.id}`)
@@ -574,8 +573,6 @@ export function FAC02FacilityProfilePage() {
         </p>
       </div>
 
-      {/* ══ Bottom Navigation ══ */}
-      <BottomNav activeTab="home" />
     </div>
   );
 }
