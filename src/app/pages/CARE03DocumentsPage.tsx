@@ -1,5 +1,4 @@
 import { useNavigate, useSearchParams } from "react-router";
-import { BottomNav } from "../components/BottomNav";
 import {
   ArrowLeft,
   FileText,

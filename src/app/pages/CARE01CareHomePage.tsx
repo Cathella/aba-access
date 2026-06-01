@@ -81,6 +81,19 @@ export function CARE01CareHomePage() {
 
   const filters = ["All", "Covered", "Out-of-pocket", "Pending"] as const;
 
+  const filteredTimeline = sampleTimeline
+    .map((group) => ({
+      ...group,
+      visits: group.visits.filter((v) => {
+        if (activeFilter === "All") return true;
+        if (activeFilter === "Covered") return v.coverageLabel === "Covered" || v.coverageLabel === "Discount applied";
+        if (activeFilter === "Out-of-pocket") return v.coverageLabel === "Out-of-pocket";
+        if (activeFilter === "Pending") return v.coverageLabel === "Pending";
+        return true;
+      }),
+    }))
+    .filter((group) => group.visits.length > 0);
+
   return (
     <div className="min-h-screen bg-brand-neutral-100 flex flex-col">
       {/* ══ App Bar (fixed top) ══ */}
@@ -171,7 +184,12 @@ export function CARE01CareHomePage() {
         ════════════════════════════════════════════ */}
         {showSample && (
           <div className="px-5 pt-4 pb-4 space-y-5">
-            {sampleTimeline.map((group) => (
+            {filteredTimeline.length === 0 && (
+              <p className="text-[13px] text-brand-neutral-500 text-center py-8" style={{ fontWeight: 400 }}>
+                No visits match this filter.
+              </p>
+            )}
+            {filteredTimeline.map((group) => (
               <div key={group.header}>
                 {/* ── Date header ── */}
                 <h4

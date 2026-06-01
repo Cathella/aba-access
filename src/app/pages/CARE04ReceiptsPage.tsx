@@ -1,7 +1,6 @@
 import { useNavigate, useSearchParams } from "react-router";
 import { useState } from "react";
 import { useAuth } from "../../lib/auth-context";
-import { BottomNav } from "../components/BottomNav";
 import {
   ArrowLeft,
   ShieldCheck,
@@ -487,8 +486,6 @@ export function CARE04ReceiptsPage() {
         </div>
       </div>
 
-      {/* ══ Bottom Navigation ══ */}
-      <BottomNav activeTab="care" />
     </div>
   );
 }
