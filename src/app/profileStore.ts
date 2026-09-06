@@ -11,6 +11,9 @@ export interface UserProfile {
   gender: string;    // "Male" | "Female" | "Other" | ""
   memberId: string;
   phone: string;
+  email: string;
+  emergencyName: string;
+  emergencyPhone: string;
   profileComplete: boolean;
 }
 
@@ -24,6 +27,9 @@ const defaultProfile: UserProfile = {
   gender: "",
   memberId: "",
   phone: "",
+  email: "",
+  emergencyName: "",
+  emergencyPhone: "",
   profileComplete: false,
 };
 

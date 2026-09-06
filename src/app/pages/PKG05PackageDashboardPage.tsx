@@ -73,22 +73,13 @@ export function PKG05PackageDashboardPage() {
       .then(({ data }) => setValidity(data));
   }, [packageId]);
 
-  /* Read dependent count from sessionStorage (kept in sync by DEP-01) */
-  const [depCount, setDepCount] = useState(() => {
-    const stored = sessionStorage.getItem("dep_count");
-    return stored !== null ? Number(stored) : 2; // default sample count
-  });
+  const [depCount, setDepCount] = useState<number | null>(null);
 
-  /* Re-read on focus (returning from DEP flow) */
   useEffect(() => {
-    const sync = () => {
-      const stored = sessionStorage.getItem("dep_count");
-      if (stored !== null) setDepCount(Number(stored));
-    };
-    window.addEventListener("focus", sync);
-    // also sync on mount / navigation back
-    sync();
-    return () => window.removeEventListener("focus", sync);
+    supabase
+      .from("dependents")
+      .select("id", { count: "exact", head: true })
+      .then(({ count }) => setDepCount(count ?? 0));
   }, []);
 
   return (
@@ -231,7 +222,7 @@ export function PKG05PackageDashboardPage() {
                   className="text-[13px] text-brand-neutral-900"
                   style={{ fontWeight: 500 }}
                 >
-                  Dependents: {depCount}/3
+                  Dependents: {depCount ?? "—"}/3
                 </span>
               </div>
             </div>

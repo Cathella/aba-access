@@ -58,7 +58,6 @@ import { AUTH06SuccessPage } from "./pages/AUTH06SuccessPage"
 import { AUTH06BCompleteProfilePage } from "./pages/AUTH06BCompleteProfilePage"
 import { AUTH07EnterPINPage } from "./pages/AUTH07EnterPINPage"
 import { AUTH08AResetPINPage } from "./pages/AUTH08AResetPINPage"
-import { AUTH08BVerifyOTPPage } from "./pages/AUTH08BVerifyOTPPage"
 import { AUTH08CSetNewPINPage } from "./pages/AUTH08CSetNewPINPage"
 import { AUTH08DDonePage } from "./pages/AUTH08DDonePage"
 import { AUTH09LogoutConfirmPage } from "./pages/AUTH09LogoutConfirmPage"
@@ -98,7 +97,6 @@ export const router = createBrowserRouter([
   { path: "/auth-06",  Component: AUTH06SuccessPage },
   { path: "/auth-06b", Component: AUTH06BCompleteProfilePage },
   { path: "/auth-08",  Component: AUTH08AResetPINPage },
-  { path: "/auth-08b", Component: AUTH08BVerifyOTPPage },
   { path: "/auth-08c", Component: AUTH08CSetNewPINPage },
   { path: "/auth-08d", Component: AUTH08DDonePage },
 

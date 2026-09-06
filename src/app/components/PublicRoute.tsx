@@ -2,7 +2,7 @@ import { Navigate, Outlet } from "react-router"
 import { useAuth } from "../../lib/auth-context"
 
 export function PublicRoute() {
-  const { user, loading, profile } = useAuth()
+  const { user, loading, profile, verifyingPin } = useAuth()
 
   if (loading) {
     return (
@@ -16,7 +16,9 @@ export function PublicRoute() {
   // A session alone is not enough — the user must have finished the onboarding flow.
   // This prevents the race condition where onAuthStateChange fires mid-signup
   // (after signUp creates the session) and redirects before the profile steps run.
-  if (user && profile.profileComplete) {
+  // verifyingPin guards the equivalent race on /auth-07: signInWithPin creates
+  // a session before it has actually confirmed the PIN is correct.
+  if (user && profile.profileComplete && !verifyingPin) {
     return <Navigate to="/home-01" replace />
   }
 

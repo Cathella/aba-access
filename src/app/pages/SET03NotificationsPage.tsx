@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate } from "react-router";
 import {
   ArrowLeft,
@@ -10,6 +10,24 @@ import {
   MessageSquare,
   Info,
 } from "lucide-react";
+import { supabase } from "../../lib/supabase";
+import { useAuth } from "../../lib/auth-context";
+
+type NotificationPrefs = {
+  approvals: boolean;
+  packageReminders: boolean;
+  careUpdates: boolean;
+  promotions: boolean;
+  inApp: boolean;
+};
+
+const DEFAULT_PREFS: NotificationPrefs = {
+  approvals: true,
+  packageReminders: true,
+  careUpdates: true,
+  promotions: false,
+  inApp: true,
+};
 
 /* ══════════════════════════════════════════════
    Toggle component
@@ -105,15 +123,29 @@ function ToggleRow({
 
 export function SET03NotificationsPage() {
   const navigate = useNavigate();
+  const { user } = useAuth();
 
-  /* notification type toggles */
-  const [approvals, setApprovals] = useState(true);
-  const [packageReminders, setPackageReminders] = useState(true);
-  const [careUpdates, setCareUpdates] = useState(true);
-  const [promotions, setPromotions] = useState(false);
+  const [prefs, setPrefs] = useState<NotificationPrefs>(DEFAULT_PREFS);
 
-  /* delivery toggles */
-  const [inApp, setInApp] = useState(true);
+  useEffect(() => {
+    supabase
+      .from("users")
+      .select("notification_prefs")
+      .maybeSingle()
+      .then(({ data }) => {
+        if (data?.notification_prefs) {
+          setPrefs({ ...DEFAULT_PREFS, ...data.notification_prefs });
+        }
+      });
+  }, []);
+
+  function updatePref<K extends keyof NotificationPrefs>(key: K, value: NotificationPrefs[K]) {
+    const next = { ...prefs, [key]: value };
+    setPrefs(next);
+    if (user) {
+      supabase.from("users").update({ notification_prefs: next }).eq("id", user.id).then();
+    }
+  }
 
   return (
     <div className="min-h-screen bg-brand-neutral-100 flex flex-col">
@@ -148,28 +180,28 @@ export function SET03NotificationsPage() {
               icon={Bell}
               label="Approval requests"
               caption="Facility requests to redeem coverage"
-              enabled={approvals}
-              onChange={setApprovals}
+              enabled={prefs.approvals}
+              onChange={(v) => updatePref("approvals", v)}
             />
             <ToggleRow
               icon={Package}
               label="Package reminders"
               caption="Expiry and low balance alerts"
-              enabled={packageReminders}
-              onChange={setPackageReminders}
+              enabled={prefs.packageReminders}
+              onChange={(v) => updatePref("packageReminders", v)}
             />
             <ToggleRow
               icon={Heart}
               label="Care updates"
               caption="Results and receipts"
-              enabled={careUpdates}
-              onChange={setCareUpdates}
+              enabled={prefs.careUpdates}
+              onChange={(v) => updatePref("careUpdates", v)}
             />
             <ToggleRow
               icon={Megaphone}
               label="Promotions"
-              enabled={promotions}
-              onChange={setPromotions}
+              enabled={prefs.promotions}
+              onChange={(v) => updatePref("promotions", v)}
               isLast
             />
           </div>
@@ -187,8 +219,8 @@ export function SET03NotificationsPage() {
             <ToggleRow
               icon={Smartphone}
               label="In-app alerts"
-              enabled={inApp}
-              onChange={setInApp}
+              enabled={prefs.inApp}
+              onChange={(v) => updatePref("inApp", v)}
             />
             <ToggleRow
               icon={MessageSquare}

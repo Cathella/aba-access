@@ -124,7 +124,7 @@ export function SET02SecurityPinPage() {
                   className="text-[11px] text-brand-neutral-500 mt-0.5"
                   style={{ fontWeight: 400 }}
                 >
-                  Verify via OTP
+                  Set a new PIN without your current one
                 </p>
               </div>
               <ChevronRight

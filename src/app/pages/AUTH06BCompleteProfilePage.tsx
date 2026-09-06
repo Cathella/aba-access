@@ -3,7 +3,6 @@ import { useNavigate } from "react-router";
 import { ArrowLeft, ChevronDown, AlertTriangle, Info } from "lucide-react";
 import { toast } from "sonner";
 import { useAuth } from "../../lib/auth-context";
-import { saveProfile } from "../profileStore";
 
 /* ══════════════════════════════════════════════
    Constants
@@ -56,14 +55,8 @@ export function AUTH06BCompleteProfilePage() {
         district,
         areaTown: areaTown.trim(),
         pin,
-      });
-      saveProfile({
-        fullName: fullName.trim(),
-        district,
-        areaTown: areaTown.trim(),
         dob,
         gender,
-        profileComplete: true,
       });
       localStorage.removeItem('newPin');
       sessionStorage.removeItem('newPin');

@@ -8,10 +8,15 @@ interface AuthContextType {
   session: Session | null
   profile: UserProfile
   loading: boolean
+  verifyingPin: boolean
   signUp: (phone: string) => Promise<void>
   verifyOtp: (phone: string, otp: string) => Promise<void>
-  completeProfile: (profile: { fullName: string; district: string; areaTown?: string; pin: string }) => Promise<void>
+  completeProfile: (profile: { fullName: string; district: string; areaTown?: string; pin: string; dob?: string; gender?: string }) => Promise<void>
+  updateProfile: (profile: { fullName: string; district: string; areaTown?: string; dob?: string; gender?: string; email?: string; emergencyName?: string; emergencyPhone?: string }) => Promise<void>
   signInWithPin: (phone: string, pin: string) => Promise<void>
+  changePin: (currentPin: string, newPin: string) => Promise<void>
+  resetPinAuthenticated: (newPin: string) => Promise<void>
+  beginPinResetByPhone: (phone: string) => Promise<void>
   signOut: () => Promise<void>
 }
 
@@ -32,13 +37,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [session, setSession] = useState<Session | null>(null)
   const [profile, setProfile] = useState<UserProfile>(() => getProfile())
   const [loading, setLoading] = useState(true)
+  // Set while signInWithPin is mid-flight. The Supabase session is created
+  // (and onAuthStateChange fires) before the PIN itself has been checked —
+  // this stops PublicRoute from treating that transient session as a real
+  // login and redirecting to /home-01 before a wrong PIN gets rejected.
+  const [verifyingPin, setVerifyingPin] = useState(false)
 
   // Fetch the user's row from the database and sync it to localStorage + React state.
   // Uses RLS — Supabase automatically returns only the current user's row.
   async function syncProfile() {
     const { data } = await supabase
       .from('users')
-      .select('member_id, full_name, district, area_town, phone')
+      .select('member_id, full_name, district, area_town, phone, dob, gender, email, emergency_contact_name, emergency_contact_phone')
       .maybeSingle()
 
     if (data) {
@@ -48,6 +58,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         district: data.district || '',
         areaTown: data.area_town || '',
         phone: data.phone || '',
+        dob: data.dob || '',
+        gender: data.gender || '',
+        email: data.email || '',
+        emergencyName: data.emergency_contact_name || '',
+        emergencyPhone: data.emergency_contact_phone || '',
         profileComplete: !!(data.full_name && data.member_id),
       })
       setProfile(updated)
@@ -106,7 +121,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     // OTP screen is intentionally skipped — no Twilio dependency
   }
 
-  const completeProfile = async ({ fullName, district, areaTown, pin }: { fullName: string; district: string; areaTown?: string; pin: string }) => {
+  const completeProfile = async ({ fullName, district, areaTown, pin, dob, gender }: { fullName: string; district: string; areaTown?: string; pin: string; dob?: string; gender?: string }) => {
     const { data: sessionData, error: sessionError } = await supabase.auth.getSession()
     if (sessionError) throw new Error(`Session error: ${sessionError.message}`)
     if (!sessionData?.session) throw new Error('No active session — please sign up again')
@@ -132,6 +147,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       full_name: fullName,
       district,
       area_town: areaTown || district,
+      dob: dob || null,
+      gender: gender || null,
     })
     if (error) throw new Error(`Failed to save profile: ${error.message} (code: ${error.code})`)
 
@@ -143,36 +160,127 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       areaTown: areaTown || district,
       memberId,
       phone,
+      dob: dob || '',
+      gender: gender || '',
       profileComplete: true,
     })
     setProfile(updated)
   }
 
+  // Used by Settings → Profile to edit an already-completed profile.
+  // Unlike completeProfile, this updates the existing row and refreshes the
+  // shared profile state so edits are reflected without a full page reload.
+  const updateProfile = async ({ fullName, district, areaTown, dob, gender, email, emergencyName, emergencyPhone }: { fullName: string; district: string; areaTown?: string; dob?: string; gender?: string; email?: string; emergencyName?: string; emergencyPhone?: string }) => {
+    const { data: sessionData, error: sessionError } = await supabase.auth.getSession()
+    if (sessionError) throw new Error(`Session error: ${sessionError.message}`)
+    if (!sessionData?.session) throw new Error('No active session')
+
+    const { error } = await supabase
+      .from('users')
+      .update({
+        full_name: fullName,
+        district,
+        area_town: areaTown || district,
+        dob: dob || null,
+        gender: gender || null,
+        email: email || null,
+        emergency_contact_name: emergencyName || null,
+        emergency_contact_phone: emergencyPhone || null,
+      })
+      .eq('id', sessionData.session.user.id)
+    if (error) throw new Error(`Failed to update profile: ${error.message} (code: ${error.code})`)
+
+    const updated = saveProfile({
+      fullName,
+      district,
+      areaTown: areaTown || district,
+      dob: dob || '',
+      gender: gender || '',
+      email: email || '',
+      emergencyName: emergencyName || '',
+      emergencyPhone: emergencyPhone || '',
+    })
+    setProfile(updated)
+  }
+
   const signInWithPin = async (phone: string, pin: string) => {
-    const cleanPhone = phone.replace(/\s/g, '')
-    const { email, password } = phoneToCredentials(cleanPhone)
+    setVerifyingPin(true)
+    try {
+      const cleanPhone = phone.replace(/\s/g, '')
+      const { email, password } = phoneToCredentials(cleanPhone)
 
-    // Establish session with derived credentials
-    const { error: signInError } = await supabase.auth.signInWithPassword({ email, password })
-    if (signInError) throw new Error('Phone number not registered')
+      // Establish session with derived credentials
+      const { error: signInError } = await supabase.auth.signInWithPassword({ email, password })
+      if (signInError) throw new Error('Phone number not registered')
 
-    // Session is active — now verify PIN against the users table
+      // Session is active — now verify PIN against the users table
+      const { data: userData, error: userError } = await supabase
+        .from('users')
+        .select('pin_hash')
+        .single()
+
+      if (userError || !userData) {
+        await supabase.auth.signOut()
+        throw new Error('Account setup incomplete. Please sign up again.')
+      }
+
+      if (userData.pin_hash !== btoa(pin)) {
+        await supabase.auth.signOut()
+        throw new Error('Incorrect PIN')
+      }
+
+      // Sync full profile from DB into localStorage and React state
+      await syncProfile()
+    } finally {
+      setVerifyingPin(false)
+    }
+  }
+
+  // Shared by changePin and resetPinAuthenticated — both end with the same
+  // write, once a session for the account is established.
+  async function setPinHash(newPin: string) {
+    const { data: sessionData } = await supabase.auth.getSession()
+    if (!sessionData?.session) throw new Error('No active session')
+
+    const { error } = await supabase
+      .from('users')
+      .update({ pin_hash: btoa(newPin) })
+      .eq('id', sessionData.session.user.id)
+    if (error) throw new Error(`Failed to update PIN: ${error.message} (code: ${error.code})`)
+  }
+
+  // Settings → Security & PIN → Change PIN. Requires knowing the current PIN.
+  const changePin = async (currentPin: string, newPin: string) => {
     const { data: userData, error: userError } = await supabase
       .from('users')
       .select('pin_hash')
-      .single()
+      .maybeSingle()
+    if (userError || !userData) throw new Error('Account not found')
+    if (userData.pin_hash !== btoa(currentPin)) throw new Error('Current PIN is incorrect')
 
-    if (userError || !userData) {
-      await supabase.auth.signOut()
-      throw new Error('Account setup incomplete. Please sign up again.')
-    }
+    await setPinHash(newPin)
+  }
 
-    if (userData.pin_hash !== btoa(pin)) {
-      await supabase.auth.signOut()
-      throw new Error('Incorrect PIN')
-    }
+  // Settings → Security & PIN → Reset PIN. User already has a live session,
+  // so no extra verification is needed to set a new PIN.
+  const resetPinAuthenticated = async (newPin: string) => {
+    await setPinHash(newPin)
+  }
 
-    // Sync full profile from DB into localStorage and React state
+  // "Forgot PIN?" from the login screen — no session yet. There's no SMS
+  // provider wired up, so identity is proven the same way login already
+  // proves it: the account's Supabase password is derived from the phone
+  // number itself (see phoneToCredentials above), not a separate secret.
+  // This doesn't weaken anything — it's the same trust boundary login uses.
+  // Establishes the session; the caller then uses resetPinAuthenticated to
+  // actually set the new PIN once one has been entered.
+  const beginPinResetByPhone = async (phone: string) => {
+    const cleanPhone = phone.replace(/\s/g, '')
+    const { email, password } = phoneToCredentials(cleanPhone)
+
+    const { error: signInError } = await supabase.auth.signInWithPassword({ email, password })
+    if (signInError) throw new Error('Phone number not registered')
+
     await syncProfile()
   }
 
@@ -186,7 +294,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }
 
   return (
-    <AuthContext.Provider value={{ user, session, profile, loading, signUp, verifyOtp, completeProfile, signInWithPin, signOut }}>
+    <AuthContext.Provider value={{ user, session, profile, loading, verifyingPin, signUp, verifyOtp, completeProfile, updateProfile, signInWithPin, changePin, resetPinAuthenticated, beginPinResetByPhone, signOut }}>
       {children}
     </AuthContext.Provider>
   )

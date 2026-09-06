@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useNavigate, useSearchParams } from "react-router";
 import { ArrowLeft, ShieldCheck, Building2, AlertCircle } from "lucide-react";
+import { supabase } from "../../lib/supabase";
 
 export function AUTH04ConsentPage() {
   const navigate = useNavigate();
@@ -11,17 +12,28 @@ export function AUTH04ConsentPage() {
   const [termsAccepted, setTermsAccepted] = useState(false);
   const [privacyAccepted, setPrivacyAccepted] = useState(false);
   const [showError, setShowError] = useState(false);
+  const [errorMessage, setErrorMessage] = useState("Please accept Terms and Privacy to continue.");
+  const [submitting, setSubmitting] = useState(false);
 
   const bothChecked = termsAccepted && privacyAccepted;
 
-  function handleContinue() {
+  async function handleContinue() {
     if (!bothChecked) {
+      setErrorMessage("Please accept Terms and Privacy to continue.");
       setShowError(true);
       return;
     }
-    navigate(
-      `/auth-05?mode=${mode}&phone=${encodeURIComponent(phone)}`
-    );
+    setSubmitting(true);
+    try {
+      const { error } = await supabase.from("consents").insert({});
+      if (error) throw error;
+      navigate(`/auth-05?mode=${mode}&phone=${encodeURIComponent(phone)}`);
+    } catch {
+      setErrorMessage("Couldn't record your consent. Please try again.");
+      setShowError(true);
+    } finally {
+      setSubmitting(false);
+    }
   }
 
   function handleCheckChange(
@@ -81,7 +93,7 @@ export function AUTH04ConsentPage() {
               className="text-[13px] text-brand-error-500"
               style={{ fontWeight: 450, lineHeight: 1.4 }}
             >
-              Please accept Terms and Privacy to continue.
+              {errorMessage}
             </p>
           </div>
         )}
@@ -273,14 +285,15 @@ export function AUTH04ConsentPage() {
       <div className="fixed bottom-0 left-0 right-0 z-20 bg-brand-neutral-0 border-t border-brand-neutral-200 px-5 pt-3 pb-4">
         <button
           onClick={handleContinue}
+          disabled={submitting}
           className={`w-full h-[48px] rounded-xl text-[15px] flex items-center justify-center border-[1.5px] transition-colors ${
-            bothChecked
+            bothChecked && !submitting
               ? "bg-brand-primary-300 hover:bg-brand-primary-400 text-brand-neutral-900 border-brand-neutral-900"
               : "bg-brand-primary-300/50 text-brand-neutral-900/50 border-brand-neutral-900/30"
           }`}
           style={{ fontWeight: 500 }}
         >
-          Continue
+          {submitting ? "Continuing…" : "Continue"}
         </button>
       </div>
     </div>
