@@ -21,7 +21,7 @@ import { useAuth } from "../../lib/auth-context";
 import { getGreetingName } from "../profileStore";
 
 /* ══════════════════════════════════════════════
-   Facility data
+   Facility type
    ══════════════════════════════════════════════ */
 
 type FacilityType = "Clinic" | "Lab" | "Pharmacy";
@@ -30,19 +30,7 @@ interface FacilityInfo {
   id: string;
   name: string;
   types: FacilityType[];
-  distance: string;
 }
-
-const facilitiesMap: Record<string, FacilityInfo> = {
-  f1: { id: "f1", name: "Mukono Family Clinic", types: ["Clinic"], distance: "1.2 km" },
-  f2: { id: "f2", name: "Sunrise Diagnostics", types: ["Lab"], distance: "2.1 km" },
-  f3: { id: "f3", name: "Divine Care Pharmacy", types: ["Pharmacy"], distance: "2.8 km" },
-  f4: { id: "f4", name: "Kisaasi Medical Centre", types: ["Clinic", "Lab"], distance: "3.0 km" },
-  f5: { id: "f5", name: "Wandegeya Health Hub", types: ["Clinic"], distance: "4.4 km" },
-  f6: { id: "f6", name: "Mengo Diagnostics", types: ["Lab"], distance: "5.2 km" },
-  f7: { id: "f7", name: "Ntinda Family Pharmacy", types: ["Pharmacy"], distance: "6.0 km" },
-  f8: { id: "f8", name: "Bukoto Care Point", types: ["Clinic", "Pharmacy"], distance: "6.5 km" },
-};
 
 const typeToService: Record<FacilityType, string> = {
   Clinic: "Consultation",
@@ -128,9 +116,7 @@ export function BOOK01BookVisitPage() {
       .order("created_at", { ascending: true })
       .then(({ data }) => {
         if (!data?.length) return;
-        const memberName = profile?.firstName
-          ? `${profile.firstName}${profile.lastName ? " " + profile.lastName : ""}`
-          : getGreetingName();
+        const memberName = profile?.fullName || getGreetingName();
         setPatients([
           { id: "member", name: memberName, label: "Member" },
           ...data.map((dep) => ({
@@ -154,8 +140,20 @@ export function BOOK01BookVisitPage() {
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState("");
 
-  /* ── Derived ── */
-  const facility = facilityParam ? facilitiesMap[facilityParam] ?? null : null;
+  /* ── Selected facility (from Supabase) ── */
+  const [facility, setFacility] = useState<FacilityInfo | null>(null);
+
+  useEffect(() => {
+    if (!facilityParam) { setFacility(null); return; }
+    supabase
+      .from("facilities")
+      .select("id, name, types")
+      .eq("id", facilityParam)
+      .maybeSingle()
+      .then(({ data }) => {
+        setFacility(data ? { id: data.id, name: data.name, types: (data.types ?? []) as FacilityType[] } : null);
+      });
+  }, [facilityParam]);
 
   const availableServices = useMemo<ServiceLabel[]>(() => {
     if (!facility) return [...allServices];
@@ -210,7 +208,7 @@ export function BOOK01BookVisitPage() {
                     {facility.name}
                   </p>
                   <p className="text-[11px] text-brand-neutral-500 mt-0.5" style={{ fontWeight: 400 }}>
-                    {facility.types.join(" · ")} · {facility.distance}
+                    {facility.types.join(" · ")}
                   </p>
                 </div>
                 <button

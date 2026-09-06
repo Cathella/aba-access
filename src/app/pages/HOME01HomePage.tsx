@@ -84,32 +84,22 @@ const quickActions = [
 ];
 
 /* ═════════════════════════════════════════════
-   Nearby partners data
+   Partner facility helpers
    ══════════════════════════════════════════════ */
 
-const nearbyPartners = [
-  {
-    id: "f1",
-    name: "Mukono Family Clinic",
-    type: "Clinic",
-    distance: "1.2 km",
-    icon: Stethoscope,
-  },
-  {
-    id: "f2",
-    name: "Sunrise Diagnostics",
-    type: "Lab",
-    distance: "2.1 km",
-    icon: FlaskConical,
-  },
-  {
-    id: "f3",
-    name: "Divine Care Pharmacy",
-    type: "Pharmacy",
-    distance: "2.8 km",
-    icon: Pill,
-  },
-];
+type PartnerFacility = {
+  id: string;
+  name: string;
+  type: string;
+  region: string | null;
+  icon: typeof Stethoscope;
+};
+
+const facilityTypeIcon: Record<string, typeof Stethoscope> = {
+  Clinic: Stethoscope,
+  Lab: FlaskConical,
+  Pharmacy: Pill,
+};
 
 const BAR_COLORS = [
   "var(--brand-primary-400)",
@@ -134,6 +124,32 @@ export function HOME01HomePage() {
   const [visitsWeekData, setVisitsWeekData] = useState<{ name: string; visits: number }[]>([]);
   const [visitsMonthData, setVisitsMonthData] = useState<{ name: string; visits: number }[]>([]);
   const [walletBalance, setWalletBalance] = useState<number | null>(null);
+  const [nearbyPartners, setNearbyPartners] = useState<PartnerFacility[]>([]);
+  const [partnersLoading, setPartnersLoading] = useState(true);
+
+  useEffect(() => {
+    supabase
+      .from("facilities")
+      .select("id, name, types, region")
+      .eq("is_active", true)
+      .order("name")
+      .limit(3)
+      .then(({ data }) => {
+        setNearbyPartners(
+          (data ?? []).map((f) => {
+            const primaryType = (f.types ?? [])[0] ?? "Clinic";
+            return {
+              id: f.id,
+              name: f.name,
+              type: primaryType,
+              region: f.region,
+              icon: facilityTypeIcon[primaryType] ?? Stethoscope,
+            };
+          })
+        );
+        setPartnersLoading(false);
+      });
+  }, []);
 
   useEffect(() => {
     const now = new Date().toISOString();
@@ -704,48 +720,62 @@ export function HOME01HomePage() {
             </button>
           </div>
 
-          <div className="bg-brand-neutral-0 border border-brand-neutral-200 rounded-2xl overflow-hidden">
-            {nearbyPartners.map((p, i) => {
-              const Icon = p.icon;
-              return (
-                <div
-                  key={p.id}
-                  className={`flex items-center gap-3 px-4 py-3.5 ${
-                    i < nearbyPartners.length - 1
-                      ? "border-b border-brand-neutral-200"
-                      : ""
-                  }`}
-                >
-                  <div className="w-9 h-9 rounded-xl bg-brand-primary-50 flex items-center justify-center shrink-0">
-                    <Icon size={16} className="text-brand-primary-500" />
+          {partnersLoading ? (
+            <div className="h-16 flex items-center justify-center">
+              <div className="w-5 h-5 rounded-full border-2 border-brand-primary-500 border-t-transparent animate-spin" />
+            </div>
+          ) : nearbyPartners.length === 0 ? (
+            <div className="bg-brand-neutral-0 border border-brand-neutral-200 rounded-2xl p-4">
+              <p className="text-[12px] text-brand-neutral-500" style={{ fontWeight: 400 }}>
+                No partner facilities listed yet.
+              </p>
+            </div>
+          ) : (
+            <div className="bg-brand-neutral-0 border border-brand-neutral-200 rounded-2xl overflow-hidden">
+              {nearbyPartners.map((p, i) => {
+                const Icon = p.icon;
+                return (
+                  <div
+                    key={p.id}
+                    className={`flex items-center gap-3 px-4 py-3.5 ${
+                      i < nearbyPartners.length - 1
+                        ? "border-b border-brand-neutral-200"
+                        : ""
+                    }`}
+                  >
+                    <div className="w-9 h-9 rounded-xl bg-brand-primary-50 flex items-center justify-center shrink-0">
+                      <Icon size={16} className="text-brand-primary-500" />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p
+                        className="text-[13px] text-brand-neutral-900 truncate"
+                        style={{ fontWeight: 500 }}
+                      >
+                        {p.name}
+                      </p>
+                      <p
+                        className="text-[11px] text-brand-neutral-500 mt-0.5"
+                        style={{ fontWeight: 400 }}
+                      >
+                        {p.type}
+                      </p>
+                    </div>
+                    {p.region && (
+                      <div className="flex items-center gap-1 shrink-0">
+                        <MapPin size={11} className="text-brand-neutral-300" />
+                        <span
+                          className="text-[11px] text-brand-neutral-500"
+                          style={{ fontWeight: 400 }}
+                        >
+                          {p.region}
+                        </span>
+                      </div>
+                    )}
                   </div>
-                  <div className="flex-1 min-w-0">
-                    <p
-                      className="text-[13px] text-brand-neutral-900 truncate"
-                      style={{ fontWeight: 500 }}
-                    >
-                      {p.name}
-                    </p>
-                    <p
-                      className="text-[11px] text-brand-neutral-500 mt-0.5"
-                      style={{ fontWeight: 400 }}
-                    >
-                      {p.type}
-                    </p>
-                  </div>
-                  <div className="flex items-center gap-1 shrink-0">
-                    <MapPin size={11} className="text-brand-neutral-300" />
-                    <span
-                      className="text-[11px] text-brand-neutral-500"
-                      style={{ fontWeight: 400 }}
-                    >
-                      {p.distance}
-                    </span>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
+                );
+              })}
+            </div>
+          )}
         </div>
       </div>
 

@@ -36,17 +36,6 @@ const TIME_LABELS: Record<string, string> = {
   evening: "Evening (5 pm – 9 pm)",
 };
 
-const FACILITY_PHONES: Record<string, string> = {
-  f1: "+256700000001",
-  f2: "+256700000002",
-  f3: "+256700000003",
-  f4: "+256700000004",
-  f5: "+256700000005",
-  f6: "+256700000006",
-  f7: "+256700000007",
-  f8: "+256700000008",
-};
-
 function formatBookingDate(d: string): string {
   if (d === "Today" || d === "Tomorrow") return d;
   try {
@@ -82,6 +71,7 @@ export function BOOK04BookingDetailPage() {
   const bookingId = searchParams.get("id") ?? "";
 
   const [booking, setBooking] = useState<Booking | null>(null);
+  const [facilityPhone, setFacilityPhone] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [confirmCancel, setConfirmCancel] = useState(false);
   const [cancelling, setCancelling] = useState(false);
@@ -97,6 +87,14 @@ export function BOOK04BookingDetailPage() {
       .then(({ data }) => {
         setBooking(data ?? null);
         setLoading(false);
+        if (data?.facility_id) {
+          supabase
+            .from("facilities")
+            .select("phone")
+            .eq("id", data.facility_id)
+            .maybeSingle()
+            .then(({ data: facilityData }) => setFacilityPhone(facilityData?.phone ?? null));
+        }
       });
   }, [bookingId]);
 
@@ -135,7 +133,6 @@ export function BOOK04BookingDetailPage() {
   const chip = statusChip[booking.status] ?? statusChip["Pending"];
   const ChipIcon = chip.icon;
   const FacilityIcon = serviceIcon[booking.service] ?? Stethoscope;
-  const phone = FACILITY_PHONES[booking.facility_id] ?? "+256700000000";
 
   const rows = [
     { label: "Facility", value: booking.facility_name },
@@ -288,14 +285,25 @@ export function BOOK04BookingDetailPage() {
                     <CalendarClock size={14} />
                     Reschedule
                   </button>
-                  <a
-                    href={`tel:${phone}`}
-                    className="flex-1 min-h-[44px] bg-brand-primary-300 hover:bg-brand-primary-400 text-brand-neutral-900 border-[1.5px] border-brand-neutral-900 rounded-xl text-[13px] flex items-center justify-center gap-1.5 transition-colors"
-                    style={{ fontWeight: 500 }}
-                  >
-                    <Phone size={14} />
-                    Call facility
-                  </a>
+                  {facilityPhone ? (
+                    <a
+                      href={`tel:${facilityPhone}`}
+                      className="flex-1 min-h-[44px] bg-brand-primary-300 hover:bg-brand-primary-400 text-brand-neutral-900 border-[1.5px] border-brand-neutral-900 rounded-xl text-[13px] flex items-center justify-center gap-1.5 transition-colors"
+                      style={{ fontWeight: 500 }}
+                    >
+                      <Phone size={14} />
+                      Call facility
+                    </a>
+                  ) : (
+                    <button
+                      disabled
+                      className="flex-1 min-h-[44px] bg-brand-neutral-100 text-brand-neutral-400 border-[1.5px] border-brand-neutral-200 rounded-xl text-[13px] flex items-center justify-center gap-1.5 cursor-not-allowed"
+                      style={{ fontWeight: 500 }}
+                    >
+                      <Phone size={14} />
+                      No phone on file
+                    </button>
+                  )}
                 </>
               )}
 
