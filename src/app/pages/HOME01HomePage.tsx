@@ -22,8 +22,8 @@ import { useNavigate } from "react-router";
 import { useState, useEffect } from "react";
 import { supabase } from "../../lib/supabase";
 import { PACKAGE_CATALOG, daysRemaining } from "../../lib/packageCatalog";
+import { computeBalance, formatUgx } from "../../lib/wallet";
 import { BottomNav } from "../components/BottomNav";
-import { getGreetingName } from "../profileStore";
 import { useAuth } from "../../lib/auth-context";
 import {
   BarChart,
@@ -83,27 +83,6 @@ const quickActions = [
   },
 ];
 
-/* ══════════════════════════════════════════════
-   Recent visits data
-   ══════════════════════════════════════════════ */
-
-const recentVisits = [
-  {
-    id: "v1",
-    facility: "Mukono Family Clinic",
-    service: "Consultation",
-    date: "12 Feb 2026",
-    icon: Stethoscope,
-  },
-  {
-    id: "v2",
-    facility: "Sunrise Diagnostics",
-    service: "Lab",
-    date: "8 Feb 2026",
-    icon: FlaskConical,
-  },
-];
-
 /* ═════════════════════════════════════════════
    Nearby partners data
    ══════════════════════════════════════════════ */
@@ -154,6 +133,7 @@ export function HOME01HomePage() {
   const [pendingApprovalsCount, setPendingApprovalsCount] = useState<number>(0);
   const [visitsWeekData, setVisitsWeekData] = useState<{ name: string; visits: number }[]>([]);
   const [visitsMonthData, setVisitsMonthData] = useState<{ name: string; visits: number }[]>([]);
+  const [walletBalance, setWalletBalance] = useState<number | null>(null);
 
   useEffect(() => {
     const now = new Date().toISOString();
@@ -170,6 +150,9 @@ export function HOME01HomePage() {
         .from("bookings")
         .select("id", { count: "exact", head: true })
         .in("status", ["Pending", "Confirmed"]),
+      supabase
+        .from("wallet_transactions")
+        .select("amount_ugx, direction, status"),
       supabase
         .from("approval_requests")
         .select("id, facility_name, service_type, patient_name")
@@ -192,10 +175,11 @@ export function HOME01HomePage() {
           .eq("status", "Approved")
           .gte("responded_at", startOfMonth.toISOString());
       })(),
-    ]).then(([{ data: pkgs }, { count: depCount }, { count: bookingCount }, { data: aprData }, { count: aprCount }, { data: visitsData }]) => {
+    ]).then(([{ data: pkgs }, { count: depCount }, { count: bookingCount }, { data: walletData }, { data: aprData }, { count: aprCount }, { data: visitsData }]) => {
       setUserPackages(pkgs ?? []);
       setDependentsCount(depCount ?? 0);
       setUpcomingBookingsCount(bookingCount ?? 0);
+      setWalletBalance(computeBalance(walletData ?? []));
       setPendingApproval(aprData?.[0] ?? null);
       setPendingApprovalsCount(aprCount ?? 0);
 
@@ -227,6 +211,7 @@ export function HOME01HomePage() {
   const [visitsPeriod, setVisitsPeriod] = useState<"week" | "month">("week");
   const [abaIdHidden, setAbaIdHidden] = useState(false);
 
+  const greetingName = profile.fullName ? profile.fullName.split(" ")[0] : "there";
   const memberId = profile.memberId || "—";
   const displayId = abaIdHidden ? `${memberId.slice(0, 6)}•••` : memberId;
 
@@ -242,7 +227,7 @@ export function HOME01HomePage() {
               className="text-[22px] tracking-[-0.01em] text-brand-neutral-900"
               style={{ fontWeight: 600 }}
             >
-              Hi {getGreetingName()}
+              Hi {greetingName}
             </h2>
             <p
               className="text-[12px] text-brand-neutral-900 mt-0.5"
@@ -513,7 +498,7 @@ export function HOME01HomePage() {
                 className="text-[16px] text-brand-neutral-900 mb-3"
                 style={{ fontWeight: 600 }}
               >
-                UGX 0
+                {walletBalance === null ? "—" : formatUgx(walletBalance)}
               </p>
               <button
                 onClick={() => navigate("/wal-01")}
