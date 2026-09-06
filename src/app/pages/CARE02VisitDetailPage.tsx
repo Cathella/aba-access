@@ -218,7 +218,7 @@ export function CARE02VisitDetailPage() {
               <div className="flex items-center justify-between">
                 <span className="text-[12px] text-brand-neutral-500" style={{ fontWeight: 400 }}>Covered by package</span>
                 <span className="text-[13px] text-brand-neutral-900" style={{ fontWeight: 500 }}>
-                  {visit.covered ? "UGX 0" : "—"}
+                  {visit.covered ? "Included" : "—"}
                 </span>
               </div>
               <div className="flex items-center justify-between">

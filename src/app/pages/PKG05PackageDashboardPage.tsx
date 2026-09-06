@@ -1,52 +1,13 @@
 import { useNavigate, useSearchParams } from "react-router";
 import {
   ArrowLeft,
-  Stethoscope,
-  TestTubes,
-  Pill,
   Users,
   Clock,
   ChevronRight,
 } from "lucide-react";
 import { useState, useEffect } from "react";
 import { supabase } from "../../lib/supabase";
-import { formatPackageDate } from "../../lib/packageCatalog";
-
-/* ── Package data keyed by slug ── */
-const packageData: Record<
-  string,
-  {
-    displayName: string;
-    usage: { label: string; icon: React.ReactNode; remaining: number; total: number; unit: string; note?: string }[];
-  }
-> = {
-  "care-bundle-50k": {
-    displayName: "Care Bundle 50K",
-    usage: [
-      { label: "Consultation visits", icon: <Stethoscope size={18} />, remaining: 6, total: 6, unit: "visits" },
-      { label: "Lab tests", icon: <TestTubes size={18} />, remaining: 3, total: 3, unit: "tests" },
-      { label: "Pharmacy cap", icon: <Pill size={18} />, remaining: 30000, total: 30000, unit: "UGX", note: "monthly" },
-    ],
-  },
-  "consultation-only-50k": {
-    displayName: "Consultation Only 50K",
-    usage: [
-      { label: "Consultation visits", icon: <Stethoscope size={18} />, remaining: 6, total: 6, unit: "visits" },
-    ],
-  },
-  "lab-only-30k": {
-    displayName: "Lab Only 30K",
-    usage: [
-      { label: "Lab tests", icon: <TestTubes size={18} />, remaining: 5, total: 5, unit: "tests" },
-    ],
-  },
-  "pharmacy-only-20k": {
-    displayName: "Pharmacy Only 20K",
-    usage: [
-      { label: "Pharmacy cap", icon: <Pill size={18} />, remaining: 20000, total: 20000, unit: "UGX", note: "monthly" },
-    ],
-  },
-};
+import { PACKAGE_CATALOG, formatPackageDate } from "../../lib/packageCatalog";
 
 function formatNumber(n: number) {
   return n >= 1000 ? `UGX ${n.toLocaleString()}` : String(n);
@@ -57,7 +18,8 @@ export function PKG05PackageDashboardPage() {
   const [searchParams] = useSearchParams();
   const packageId = searchParams.get("package") || "care-bundle-50k";
 
-  const pkg = packageData[packageId] || packageData["care-bundle-50k"];
+  const catalogItem = PACKAGE_CATALOG[packageId] || PACKAGE_CATALOG["care-bundle-50k"];
+  const pkg = { displayName: catalogItem.name, usage: catalogItem.benefits };
 
   const [validity, setValidity] = useState<{ purchased_at: string; expires_at: string } | null>(null);
 
@@ -72,6 +34,30 @@ export function PKG05PackageDashboardPage() {
       .maybeSingle()
       .then(({ data }) => setValidity(data));
   }, [packageId]);
+
+  /* Real redemptions since this package was purchased, by service type */
+  const [usageCounts, setUsageCounts] = useState<Record<string, number> | null>(null);
+
+  useEffect(() => {
+    if (!validity) return;
+    supabase
+      .from("approval_requests")
+      .select("service_type")
+      .eq("status", "Approved")
+      .eq("covered", true)
+      .gte("responded_at", validity.purchased_at)
+      .then(({ data }) => {
+        const counts: Record<string, number> = {};
+        for (const row of data ?? []) {
+          counts[row.service_type] = (counts[row.service_type] ?? 0) + 1;
+        }
+        setUsageCounts(counts);
+      });
+  }, [validity]);
+
+  const totalRedemptions = usageCounts
+    ? Object.values(usageCounts).reduce((sum, n) => sum + n, 0)
+    : null;
 
   const [depCount, setDepCount] = useState<number | null>(null);
 
@@ -138,25 +124,63 @@ export function PKG05PackageDashboardPage() {
           </h4>
           <div className="space-y-2.5">
             {pkg.usage.map((item) => {
-              const isCurrency = item.unit === "UGX";
-              const pct = item.total > 0 ? (item.remaining / item.total) * 100 : 0;
+              /* UGX-based caps have no cost tracking yet — see CARE02/CARE04's
+                 "Included" wording for the same underlying gap. Show it
+                 honestly instead of a fabricated remaining amount. */
+              if (!item.serviceType) {
+                return (
+                  <div
+                    key={item.fullLabel}
+                    className="bg-brand-neutral-0 border border-brand-neutral-200 rounded-2xl p-4"
+                  >
+                    <div className="flex items-center gap-3">
+                      <div className="w-9 h-9 rounded-xl bg-brand-primary-50 flex items-center justify-center text-brand-primary-500">
+                        <item.icon size={18} />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <span
+                          className="text-[13px] text-brand-neutral-900"
+                          style={{ fontWeight: 500 }}
+                        >
+                          {item.fullLabel}
+                        </span>
+                        {item.note && (
+                          <span
+                            className="ml-1.5 text-[11px] text-brand-neutral-500"
+                            style={{ fontWeight: 400 }}
+                          >
+                            ({item.note})
+                          </span>
+                        )}
+                        <p className="text-[11px] text-brand-neutral-400 mt-0.5" style={{ fontWeight: 400 }}>
+                          Cap: {formatNumber(item.total)} · usage not tracked yet
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                );
+              }
+
+              const used = usageCounts?.[item.serviceType] ?? 0;
+              const remaining = Math.max(0, item.total - used);
+              const pct = item.total > 0 ? (remaining / item.total) * 100 : 0;
 
               return (
                 <div
-                  key={item.label}
+                  key={item.fullLabel}
                   className="bg-brand-neutral-0 border border-brand-neutral-200 rounded-2xl p-4"
                 >
                   {/* Top row */}
                   <div className="flex items-center gap-3 mb-3">
                     <div className="w-9 h-9 rounded-xl bg-brand-primary-50 flex items-center justify-center text-brand-primary-500">
-                      {item.icon}
+                      <item.icon size={18} />
                     </div>
                     <div className="flex-1 min-w-0">
                       <span
                         className="text-[13px] text-brand-neutral-900"
                         style={{ fontWeight: 500 }}
                       >
-                        {item.label}
+                        {item.fullLabel}
                       </span>
                       {item.note && (
                         <span
@@ -173,7 +197,7 @@ export function PKG05PackageDashboardPage() {
                   <div className="w-full h-2 bg-brand-neutral-200 rounded-full mb-2">
                     <div
                       className="h-2 rounded-full bg-brand-primary-300 transition-all"
-                      style={{ width: `${pct}%` }}
+                      style={{ width: `${usageCounts ? pct : 0}%` }}
                     />
                   </div>
 
@@ -183,7 +207,7 @@ export function PKG05PackageDashboardPage() {
                       className="text-[13px] text-brand-neutral-900"
                       style={{ fontWeight: 500 }}
                     >
-                      {isCurrency ? formatNumber(item.remaining) : item.remaining}{" "}
+                      {usageCounts ? remaining : "—"}{" "}
                       <span
                         className="text-brand-neutral-500"
                         style={{ fontWeight: 400 }}
@@ -195,7 +219,7 @@ export function PKG05PackageDashboardPage() {
                       className="text-[12px] text-brand-neutral-500"
                       style={{ fontWeight: 400 }}
                     >
-                      / {isCurrency ? formatNumber(item.total) : `${item.total} ${item.unit}`}
+                      / {item.total} {item.unit}
                     </span>
                   </div>
                 </div>
@@ -263,7 +287,11 @@ export function PKG05PackageDashboardPage() {
                 className="text-[13px] text-brand-neutral-500"
                 style={{ fontWeight: 400 }}
               >
-                No redemptions yet
+                {totalRedemptions === null
+                  ? "—"
+                  : totalRedemptions === 0
+                  ? "No redemptions yet"
+                  : `${totalRedemptions} redemption${totalRedemptions !== 1 ? "s" : ""} this package`}
               </span>
             </div>
             <button

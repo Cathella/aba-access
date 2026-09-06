@@ -4,7 +4,6 @@ import {
   ArrowLeft,
   Wallet,
   Smartphone,
-  Clock,
   AlertCircle,
   AlertTriangle,
   ChevronRight,
@@ -44,7 +43,7 @@ const packageDetails: Record<
   },
 };
 
-type PaymentMethod = "aba-wallet" | "mobile-money" | "pay-later";
+type PaymentMethod = "aba-wallet" | "mobile-money";
 
 /* Parse "UGX 50,000" → 50000 */
 function parsePrice(s: string): number {
@@ -71,13 +70,6 @@ const paymentOptions: {
     caption: "MTN/Airtel (coming soon)",
     badge: null,
     icon: <Smartphone size={16} />,
-  },
-  {
-    id: "pay-later",
-    label: "Pay later",
-    caption: "Activate after payment",
-    badge: "Optional",
-    icon: <Clock size={16} />,
   },
 ];
 

@@ -1,36 +1,16 @@
 import { useNavigate, useSearchParams } from "react-router";
 import { CheckCircle2, X } from "lucide-react";
-
-const packageData: Record<
-  string,
-  { displayName: string; highlights: string }
-> = {
-  "care-bundle-50k": {
-    displayName: "Care Bundle 50K",
-    highlights: "6 consult \u2022 3 lab \u2022 10% pharmacy",
-  },
-  "consultation-only-50k": {
-    displayName: "Consultation Only 50K",
-    highlights: "6 consultation visits",
-  },
-  "lab-only-30k": {
-    displayName: "Lab Only 30K",
-    highlights: "5 lab tests",
-  },
-  "pharmacy-only-20k": {
-    displayName: "Pharmacy Only 20K",
-    highlights: "10% discount (cap UGX 20,000)",
-  },
-};
+import { PACKAGE_CATALOG } from "../../lib/packageCatalog";
 
 export function PKG04SuccessPage() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const packageId = searchParams.get("package") || "care-bundle-50k";
 
-  const pkg = packageData[packageId] || {
-    displayName: packageId,
-    highlights: "—",
+  const catalogItem = PACKAGE_CATALOG[packageId];
+  const pkg = {
+    displayName: catalogItem?.name ?? packageId,
+    highlights: catalogItem?.highlights ?? "—",
   };
 
   return (

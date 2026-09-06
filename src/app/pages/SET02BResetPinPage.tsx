@@ -113,7 +113,7 @@ export function SET02BResetPinPage() {
     try {
       await resetPinAuthenticated(newPin);
       toast.success("PIN reset");
-      navigate("/set-02");
+      navigate("/home-01");
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to reset PIN.");
     } finally {

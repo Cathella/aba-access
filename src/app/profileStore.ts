@@ -50,6 +50,14 @@ export function saveProfile(profile: Partial<UserProfile>): UserProfile {
   return updated;
 }
 
+/** Wipes the local profile cache — used when a new identity begins
+ *  (fresh signup) or ends (sign out), so one account's data can't
+ *  leak into the next on a shared/reused device. */
+export function clearProfile(): UserProfile {
+  localStorage.removeItem(STORAGE_KEY);
+  return { ...defaultProfile };
+}
+
 export function isProfileComplete(): boolean {
   const p = getProfile();
   return p.profileComplete;

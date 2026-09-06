@@ -1,10 +1,8 @@
-import { useNavigate, useSearchParams } from "react-router";
+import { useNavigate } from "react-router";
 import { CheckCircle } from "lucide-react";
 
 export function AUTH08DDonePage() {
   const navigate = useNavigate();
-  const [searchParams] = useSearchParams();
-  const phone = searchParams.get("phone") ?? "";
 
   return (
     <div className="min-h-screen bg-brand-neutral-100 flex flex-col">
@@ -28,7 +26,7 @@ export function AUTH08DDonePage() {
           className="text-[14px] text-brand-neutral-500"
           style={{ fontWeight: 400, lineHeight: 1.55 }}
         >
-          Your PIN has been changed. Use your new PIN to log in.
+          Your PIN has been changed. You're all set.
         </p>
       </div>
 
@@ -37,17 +35,11 @@ export function AUTH08DDonePage() {
          ═══════════════════════════════════════ */}
       <div className="fixed bottom-0 left-0 right-0 z-20 bg-brand-neutral-0 border-t border-brand-neutral-200 px-5 pt-3 pb-4">
         <button
-          onClick={() =>
-            navigate(
-              phone
-                ? `/auth-07?phone=${encodeURIComponent(phone)}`
-                : "/auth-07"
-            )
-          }
+          onClick={() => navigate("/home-01")}
           className="w-full h-[48px] rounded-xl text-[15px] flex items-center justify-center border-[1.5px] bg-brand-primary-300 hover:bg-brand-primary-400 text-brand-neutral-900 border-brand-neutral-900 transition-colors"
           style={{ fontWeight: 500 }}
         >
-          Back to login
+          Go to dashboard
         </button>
       </div>
     </div>

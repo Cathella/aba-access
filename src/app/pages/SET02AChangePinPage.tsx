@@ -114,7 +114,7 @@ export function SET02AChangePinPage() {
     try {
       await changePin(currentPin, newPin);
       toast.success("PIN updated");
-      navigate("/set-02");
+      navigate("/home-01");
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to update PIN.");
     } finally {
