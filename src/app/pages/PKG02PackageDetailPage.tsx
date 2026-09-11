@@ -6,65 +6,7 @@ import {
   ShieldCheck,
   XCircle,
 } from "lucide-react";
-
-type PackageInfo = {
-  name: string;
-  price: string;
-  benefits: { label: string; value: string }[];
-  sharing: string | null;
-  exclusions: string[];
-};
-
-const PACKAGES: Record<string, PackageInfo> = {
-  "care-bundle-50k": {
-    name: "Care Bundle 50K",
-    price: "UGX 50,000",
-    benefits: [
-      { label: "Consultation visits", value: "6" },
-      { label: "Lab tests", value: "3" },
-      { label: "Pharmacy discount", value: "10% (cap UGX 30,000)" },
-    ],
-    sharing: "Covers you + up to 3 dependents",
-    exclusions: [
-      "Admissions not covered",
-      "Surgery not covered",
-      "Beyond caps is out-of-pocket",
-    ],
-  },
-  "consultation-only-50k": {
-    name: "Consultation Only 50K",
-    price: "UGX 50,000",
-    benefits: [{ label: "Consultation visits", value: "6" }],
-    sharing: "Covers you + up to 3 dependents",
-    exclusions: [
-      "Admissions not covered",
-      "Surgery not covered",
-      "Beyond caps is out-of-pocket",
-    ],
-  },
-  "lab-only-30k": {
-    name: "Lab Only 30K",
-    price: "UGX 30,000",
-    benefits: [{ label: "Lab tests", value: "5" }],
-    sharing: null,
-    exclusions: [
-      "Admissions not covered",
-      "Surgery not covered",
-      "Beyond caps is out-of-pocket",
-    ],
-  },
-  "pharmacy-only-20k": {
-    name: "Pharmacy Only 20K",
-    price: "UGX 20,000",
-    benefits: [{ label: "Pharmacy discount", value: "10% (cap UGX 20,000)" }],
-    sharing: null,
-    exclusions: [
-      "Admissions not covered",
-      "Surgery not covered",
-      "Beyond caps is out-of-pocket",
-    ],
-  },
-};
+import { PACKAGE_CATALOG, PACKAGE_EXCLUSIONS } from "../../lib/packageCatalog";
 
 const REDEMPTION_STEPS = [
   "Redemption starts at the facility.",
@@ -76,7 +18,7 @@ const REDEMPTION_STEPS = [
 export function PKG02PackageDetailPage() {
   const { packageId } = useParams();
   const navigate = useNavigate();
-  const pkg = PACKAGES[packageId || ""];
+  const pkg = PACKAGE_CATALOG[packageId || ""];
 
   if (!pkg) {
     return (
@@ -135,7 +77,7 @@ export function PKG02PackageDetailPage() {
             className="text-[14px] text-brand-neutral-700 mt-0.5"
             style={{ fontWeight: 500 }}
           >
-            {pkg.price}{" "}
+            UGX {pkg.priceUgx.toLocaleString()}{" "}
             <span
               className="text-brand-neutral-500"
               style={{ fontWeight: 400 }}
@@ -156,7 +98,7 @@ export function PKG02PackageDetailPage() {
             </h4>
             <div className="space-y-3">
               {pkg.benefits.map((item) => (
-                <div key={item.label} className="flex items-center gap-2.5">
+                <div key={item.fullLabel} className="flex items-center gap-2.5">
                   <CheckCircle2
                     size={16}
                     className="text-brand-primary-500 shrink-0"
@@ -166,7 +108,7 @@ export function PKG02PackageDetailPage() {
                       className="text-[13px] text-brand-neutral-700"
                       style={{ fontWeight: 400 }}
                     >
-                      {item.label}
+                      {item.fullLabel}
                     </span>
                     <span
                       className="text-[13px] text-brand-neutral-900 shrink-0"
@@ -262,7 +204,7 @@ export function PKG02PackageDetailPage() {
                   Exclusions
                 </h4>
                 <ul className="space-y-1.5">
-                  {pkg.exclusions.map((item) => (
+                  {PACKAGE_EXCLUSIONS.map((item) => (
                     <li
                       key={item}
                       className="text-[12px] text-brand-neutral-700 flex items-start gap-2"

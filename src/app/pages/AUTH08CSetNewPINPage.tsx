@@ -1,6 +1,7 @@
 import { useState, useRef } from "react";
 import { useNavigate, useSearchParams } from "react-router";
 import { ArrowLeft, Lock, AlertCircle } from "lucide-react";
+import { useAuth } from "../../lib/auth-context";
 
 const PIN_LENGTH = 4;
 
@@ -8,11 +9,14 @@ export function AUTH08CSetNewPINPage() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const phone = searchParams.get("phone") ?? "";
+  const { resetPinAuthenticated } = useAuth();
 
   const [step, setStep] = useState<1 | 2>(1);
   const [pin, setPin] = useState<string[]>(Array(PIN_LENGTH).fill(""));
   const [confirm, setConfirm] = useState<string[]>(Array(PIN_LENGTH).fill(""));
   const [showError, setShowError] = useState(false);
+  const [errorMessage, setErrorMessage] = useState("PINs don't match. Try again.");
+  const [saving, setSaving] = useState(false);
 
   const pinRefs = useRef<(HTMLInputElement | null)[]>([]);
   const confirmRefs = useRef<(HTMLInputElement | null)[]>([]);
@@ -62,7 +66,7 @@ export function AUTH08CSetNewPINPage() {
   /* ── Validation ── */
   const isFilled = activeDigits.join("").length === PIN_LENGTH;
 
-  function handleContinue() {
+  async function handleContinue() {
     if (!isFilled) return;
 
     if (step === 1) {
@@ -72,12 +76,23 @@ export function AUTH08CSetNewPINPage() {
     } else {
       // Step 2 — confirm
       if (pin.join("") !== confirm.join("")) {
+        setErrorMessage("PINs don't match. Try again.");
         setShowError(true);
         setConfirm(Array(PIN_LENGTH).fill(""));
         setTimeout(() => confirmRefs.current[0]?.focus(), 60);
         return;
       }
-      navigate(`/auth-08d?phone=${encodeURIComponent(phone)}`);
+
+      setSaving(true);
+      try {
+        await resetPinAuthenticated(pin.join(""));
+        navigate(`/auth-08d?phone=${encodeURIComponent(phone)}`);
+      } catch (err) {
+        setErrorMessage(err instanceof Error ? err.message : "Failed to save PIN.");
+        setShowError(true);
+      } finally {
+        setSaving(false);
+      }
     }
   }
 
@@ -155,7 +170,7 @@ export function AUTH08CSetNewPINPage() {
                 className="text-[13px] text-brand-error-500"
                 style={{ fontWeight: 450, lineHeight: 1.4 }}
               >
-                PINs don't match. Try again.
+                {errorMessage}
               </p>
             </div>
           )}
@@ -211,15 +226,15 @@ export function AUTH08CSetNewPINPage() {
           {/* ── Continue / Save PIN button ── */}
           <button
             onClick={handleContinue}
-            disabled={!isFilled}
+            disabled={!isFilled || saving}
             className={`w-full min-h-[48px] rounded-xl flex items-center justify-center border-[1.5px] transition-colors text-[15px] ${
-              isFilled
+              isFilled && !saving
                 ? "bg-brand-primary-300 hover:bg-brand-primary-400 text-brand-neutral-900 border-brand-neutral-900"
                 : "bg-brand-primary-300/40 text-brand-neutral-900/40 border-transparent cursor-not-allowed"
             }`}
             style={{ fontWeight: 500 }}
           >
-            {step === 1 ? "Continue" : "Save PIN"}
+            {step === 1 ? "Continue" : saving ? "Saving…" : "Save PIN"}
           </button>
         </div>
       </div>

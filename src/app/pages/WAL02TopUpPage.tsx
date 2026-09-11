@@ -8,6 +8,7 @@ import {
   Smartphone,
 } from "lucide-react";
 import { BottomNav } from "../components/BottomNav";
+import { supabase } from "../../lib/supabase";
 
 /* ══════════════════════════════════════════════
    Data
@@ -73,12 +74,30 @@ export function WAL02TopUpPage() {
   };
 
   /* Submit */
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
     if (!isValid) {
       setShowError(true);
       return;
     }
     setShowError(false);
+
+    const { data: sessionData } = await supabase.auth.getSession();
+    const userId = sessionData?.session?.user.id;
+    if (userId) {
+      const methodLabel = methods.find((m) => m.id === selectedMethod)?.label ?? "Mobile Money";
+      // No real Mobile Money gateway integrated yet — this MVP simulates an
+      // instant successful top up so the wallet is usable for pilot demos.
+      await supabase.from("wallet_transactions").insert({
+        user_id: userId,
+        type: "topup",
+        title: "Top up",
+        subtitle: methodLabel,
+        amount_ugx: numericAmount,
+        direction: "credit",
+        status: "completed",
+      });
+    }
+
     navigate("/wal-02a");
   };
 

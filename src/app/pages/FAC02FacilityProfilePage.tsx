@@ -1,3 +1,4 @@
+import { useState, useEffect } from "react";
 import { useNavigate, useParams } from "react-router";
 import {
   ArrowLeft,
@@ -11,6 +12,7 @@ import {
   Navigation,
   CalendarPlus,
 } from "lucide-react";
+import { supabase } from "../../lib/supabase";
 
 /* ══════════════════════════════════════════════
    Types
@@ -19,182 +21,17 @@ import {
 type FacilityType = "Clinic" | "Lab" | "Pharmacy";
 type ServiceLabel = "Consultation" | "Lab tests" | "Pharmacy";
 
-interface DayHours {
-  day: string;
-  time: string;
-  isClosed: boolean;
-}
-
 interface Facility {
   id: string;
   name: string;
   types: FacilityType[];
-  distance: string;
-  address: string;
-  region: string;
+  address: string | null;
+  region: string | null;
   phone: string;
   isOpen: boolean;
-  hours: DayHours[];
+  hoursNote: string | null;
 }
 
-/* ══════════════════════════════════════════════
-   Facility data (mirrors FAC-01's 8 facilities)
-   ══════════════════════════════════════════════ */
-
-const facilities: Facility[] = [
-  {
-    id: "f1",
-    name: "Mukono Family Clinic",
-    types: ["Clinic"],
-    distance: "1.2 km",
-    address: "Plot 12, Main St, Mukono",
-    region: "Mukono District",
-    phone: "+256 700 123 456",
-    isOpen: true,
-    hours: [
-      { day: "Mon", time: "8:00 AM – 6:00 PM", isClosed: false },
-      { day: "Tue", time: "8:00 AM – 6:00 PM", isClosed: false },
-      { day: "Wed", time: "8:00 AM – 6:00 PM", isClosed: false },
-      { day: "Thu", time: "8:00 AM – 6:00 PM", isClosed: false },
-      { day: "Fri", time: "8:00 AM – 6:00 PM", isClosed: false },
-      { day: "Sat", time: "9:00 AM – 1:00 PM", isClosed: false },
-      { day: "Sun", time: "Closed", isClosed: true },
-    ],
-  },
-  {
-    id: "f2",
-    name: "Sunrise Diagnostics",
-    types: ["Lab"],
-    distance: "2.1 km",
-    address: "Block A, Sunrise Rd, Kampala",
-    region: "Kampala District",
-    phone: "+256 700 234 567",
-    isOpen: true,
-    hours: [
-      { day: "Mon", time: "7:00 AM – 7:00 PM", isClosed: false },
-      { day: "Tue", time: "7:00 AM – 7:00 PM", isClosed: false },
-      { day: "Wed", time: "7:00 AM – 7:00 PM", isClosed: false },
-      { day: "Thu", time: "7:00 AM – 7:00 PM", isClosed: false },
-      { day: "Fri", time: "7:00 AM – 7:00 PM", isClosed: false },
-      { day: "Sat", time: "8:00 AM – 2:00 PM", isClosed: false },
-      { day: "Sun", time: "8:00 AM – 2:00 PM", isClosed: false },
-    ],
-  },
-  {
-    id: "f3",
-    name: "Divine Care Pharmacy",
-    types: ["Pharmacy"],
-    distance: "2.8 km",
-    address: "Unit 5, Market Ave, Mukono",
-    region: "Mukono District",
-    phone: "+256 700 345 678",
-    isOpen: true,
-    hours: [
-      { day: "Mon", time: "8:00 AM – 8:00 PM", isClosed: false },
-      { day: "Tue", time: "8:00 AM – 8:00 PM", isClosed: false },
-      { day: "Wed", time: "8:00 AM – 8:00 PM", isClosed: false },
-      { day: "Thu", time: "8:00 AM – 8:00 PM", isClosed: false },
-      { day: "Fri", time: "8:00 AM – 8:00 PM", isClosed: false },
-      { day: "Sat", time: "8:00 AM – 8:00 PM", isClosed: false },
-      { day: "Sun", time: "10:00 AM – 4:00 PM", isClosed: false },
-    ],
-  },
-  {
-    id: "f4",
-    name: "Kisaasi Medical Centre",
-    types: ["Clinic", "Lab"],
-    distance: "3.0 km",
-    address: "Plot 44, Kisaasi Rd, Kampala",
-    region: "Kampala District",
-    phone: "+256 700 456 789",
-    isOpen: false,
-    hours: [
-      { day: "Mon", time: "8:00 AM – 5:00 PM", isClosed: false },
-      { day: "Tue", time: "8:00 AM – 5:00 PM", isClosed: false },
-      { day: "Wed", time: "8:00 AM – 5:00 PM", isClosed: false },
-      { day: "Thu", time: "8:00 AM – 5:00 PM", isClosed: false },
-      { day: "Fri", time: "Closed", isClosed: true },
-      { day: "Sat", time: "Closed", isClosed: true },
-      { day: "Sun", time: "Closed", isClosed: true },
-    ],
-  },
-  {
-    id: "f5",
-    name: "Wandegeya Health Hub",
-    types: ["Clinic"],
-    distance: "4.4 km",
-    address: "Plot 8, Wandegeya Rd, Kampala",
-    region: "Kampala District",
-    phone: "+256 700 567 890",
-    isOpen: true,
-    hours: [
-      { day: "Mon", time: "7:30 AM – 6:30 PM", isClosed: false },
-      { day: "Tue", time: "7:30 AM – 6:30 PM", isClosed: false },
-      { day: "Wed", time: "7:30 AM – 6:30 PM", isClosed: false },
-      { day: "Thu", time: "7:30 AM – 6:30 PM", isClosed: false },
-      { day: "Fri", time: "7:30 AM – 6:30 PM", isClosed: false },
-      { day: "Sat", time: "9:00 AM – 2:00 PM", isClosed: false },
-      { day: "Sun", time: "Closed", isClosed: true },
-    ],
-  },
-  {
-    id: "f6",
-    name: "Mengo Diagnostics",
-    types: ["Lab"],
-    distance: "5.2 km",
-    address: "Floor 1, Mengo Hill, Kampala",
-    region: "Kampala District",
-    phone: "+256 700 678 901",
-    isOpen: true,
-    hours: [
-      { day: "Mon", time: "7:00 AM – 6:00 PM", isClosed: false },
-      { day: "Tue", time: "7:00 AM – 6:00 PM", isClosed: false },
-      { day: "Wed", time: "7:00 AM – 6:00 PM", isClosed: false },
-      { day: "Thu", time: "7:00 AM – 6:00 PM", isClosed: false },
-      { day: "Fri", time: "7:00 AM – 6:00 PM", isClosed: false },
-      { day: "Sat", time: "8:00 AM – 1:00 PM", isClosed: false },
-      { day: "Sun", time: "Closed", isClosed: true },
-    ],
-  },
-  {
-    id: "f7",
-    name: "Ntinda Family Pharmacy",
-    types: ["Pharmacy"],
-    distance: "6.0 km",
-    address: "Plot 22, Ntinda Rd, Kampala",
-    region: "Kampala District",
-    phone: "+256 700 789 012",
-    isOpen: true,
-    hours: [
-      { day: "Mon", time: "8:00 AM – 9:00 PM", isClosed: false },
-      { day: "Tue", time: "8:00 AM – 9:00 PM", isClosed: false },
-      { day: "Wed", time: "8:00 AM – 9:00 PM", isClosed: false },
-      { day: "Thu", time: "8:00 AM – 9:00 PM", isClosed: false },
-      { day: "Fri", time: "8:00 AM – 9:00 PM", isClosed: false },
-      { day: "Sat", time: "8:00 AM – 9:00 PM", isClosed: false },
-      { day: "Sun", time: "9:00 AM – 5:00 PM", isClosed: false },
-    ],
-  },
-  {
-    id: "f8",
-    name: "Bukoto Care Point",
-    types: ["Clinic", "Pharmacy"],
-    distance: "6.5 km",
-    address: "Plot 3, Bukoto St, Kampala",
-    region: "Kampala District",
-    phone: "+256 700 890 123",
-    isOpen: true,
-    hours: [
-      { day: "Mon", time: "8:00 AM – 7:00 PM", isClosed: false },
-      { day: "Tue", time: "8:00 AM – 7:00 PM", isClosed: false },
-      { day: "Wed", time: "8:00 AM – 7:00 PM", isClosed: false },
-      { day: "Thu", time: "8:00 AM – 7:00 PM", isClosed: false },
-      { day: "Fri", time: "8:00 AM – 7:00 PM", isClosed: false },
-      { day: "Sat", time: "9:00 AM – 3:00 PM", isClosed: false },
-      { day: "Sun", time: "Closed", isClosed: true },
-    ],
-  },
-];
 
 /* ── Style helpers ── */
 
@@ -229,11 +66,6 @@ const typeToService: Record<FacilityType, { label: ServiceLabel; desc: string }>
   Pharmacy: { label: "Pharmacy", desc: "Prescription & OTC medications" },
 };
 
-/* Determine today's day name (short form) */
-const TODAY_INDEX = new Date().getDay(); // 0=Sun, 1=Mon…
-const DAY_NAMES = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
-const TODAY_SHORT = DAY_NAMES[TODAY_INDEX];
-
 /* ══════════════════════════════════════════════
    Component
    ══════════════════════════════════════════════ */
@@ -242,10 +74,47 @@ export function FAC02FacilityProfilePage() {
   const navigate = useNavigate();
   const { facilityId } = useParams();
 
-  const facility =
-    facilities.find((f) => f.id === facilityId) ?? facilities[0];
+  const [facility, setFacility] = useState<Facility | null | undefined>(undefined);
 
-  const primaryType = facility.types[0];
+  useEffect(() => {
+    if (!facilityId) { setFacility(null); return; }
+    supabase
+      .from("facilities")
+      .select("id, name, types, address, region, phone, is_open, hours_note")
+      .eq("id", facilityId)
+      .maybeSingle()
+      .then(({ data }) => {
+        if (!data) { setFacility(null); return; }
+        setFacility({
+          id: data.id,
+          name: data.name,
+          types: (data.types ?? []) as FacilityType[],
+          address: data.address,
+          region: data.region,
+          phone: data.phone,
+          isOpen: data.is_open,
+          hoursNote: data.hours_note,
+        });
+      });
+  }, [facilityId]);
+
+  if (facility === undefined) {
+    return (
+      <div className="min-h-screen bg-brand-neutral-100 flex items-center justify-center">
+        <div className="w-5 h-5 rounded-full border-2 border-brand-primary-500 border-t-transparent animate-spin" />
+      </div>
+    );
+  }
+
+  if (!facility) {
+    return (
+      <div className="min-h-screen bg-brand-neutral-100 flex items-center justify-center px-5">
+        <p className="text-[13px] text-brand-neutral-500">Facility not found.</p>
+      </div>
+    );
+  }
+
+  const primaryType = facility.types[0] ?? "Clinic";
   const PrimaryIcon = typeIcon[primaryType];
 
   /* Derive services from types */
@@ -254,10 +123,6 @@ export function FAC02FacilityProfilePage() {
     ...typeToService[t],
     icon: typeIcon[t],
   }));
-
-  /* Check if closed today */
-  const todayHours = facility.hours.find((h) => h.day === TODAY_SHORT);
-  const closedToday = todayHours?.isClosed ?? false;
 
   return (
     <div className="min-h-screen bg-brand-neutral-100 flex flex-col">
@@ -314,26 +179,18 @@ export function FAC02FacilityProfilePage() {
               </div>
             </div>
 
-            {/* Distance + location */}
-            <div className="flex items-center gap-2 mb-3">
-              <MapPin size={13} className="text-brand-neutral-400 shrink-0" />
-              <p
-                className="text-[13px] text-brand-neutral-700"
-                style={{ fontWeight: 400 }}
-              >
-                {facility.address} &middot; {facility.region}
-              </p>
-            </div>
-
-            <div className="flex items-center gap-2 mb-4">
-              <MapPin size={13} className="text-brand-neutral-300 shrink-0" />
-              <p
-                className="text-[12px] text-brand-neutral-500"
-                style={{ fontWeight: 400 }}
-              >
-                {facility.distance} away
-              </p>
-            </div>
+            {/* Location */}
+            {(facility.address || facility.region) && (
+              <div className="flex items-center gap-2 mb-4">
+                <MapPin size={13} className="text-brand-neutral-400 shrink-0" />
+                <p
+                  className="text-[13px] text-brand-neutral-700"
+                  style={{ fontWeight: 400 }}
+                >
+                  {[facility.address, facility.region].filter(Boolean).join(" · ")}
+                </p>
+              </div>
+            )}
 
             {/* Badges row */}
             <div className="flex items-center gap-2 flex-wrap">
@@ -428,70 +285,14 @@ export function FAC02FacilityProfilePage() {
           </p>
 
           <div className="bg-brand-neutral-0 border border-brand-neutral-200 rounded-2xl p-4">
-            {/* Closed-today note */}
-            {closedToday && (
-              <div className="flex items-center gap-2 mb-3 px-3 py-2 rounded-lg bg-brand-neutral-100">
-                <Clock
-                  size={12}
-                  className="text-brand-neutral-500 shrink-0"
-                />
-                <p
-                  className="text-[11px] text-brand-neutral-500"
-                  style={{ fontWeight: 500 }}
-                >
-                  This facility is closed today ({TODAY_SHORT})
-                </p>
-              </div>
-            )}
-
-            {/* Weekly grid */}
-            <div className="space-y-0">
-              {facility.hours.map((h) => {
-                const isToday = h.day === TODAY_SHORT;
-                return (
-                  <div
-                    key={h.day}
-                    className={`flex items-center justify-between py-2.5 ${
-                      isToday
-                        ? "bg-brand-primary-50/40 -mx-2 px-2 rounded-lg"
-                        : ""
-                    }`}
-                  >
-                    <div className="flex items-center gap-2">
-                      <p
-                        className={`text-[13px] w-8 ${
-                          isToday
-                            ? "text-brand-primary-500"
-                            : "text-brand-neutral-900"
-                        }`}
-                        style={{ fontWeight: isToday ? 600 : 500 }}
-                      >
-                        {h.day}
-                      </p>
-                      {isToday && (
-                        <span
-                          className="text-[9px] text-brand-primary-500 px-1.5 py-0.5 rounded bg-brand-primary-50"
-                          style={{ fontWeight: 600 }}
-                        >
-                          TODAY
-                        </span>
-                      )}
-                    </div>
-                    <p
-                      className={`text-[12px] ${
-                        h.isClosed
-                          ? "text-brand-neutral-400"
-                          : isToday
-                          ? "text-brand-primary-500"
-                          : "text-brand-neutral-700"
-                      }`}
-                      style={{ fontWeight: h.isClosed ? 400 : 400 }}
-                    >
-                      {h.time}
-                    </p>
-                  </div>
-                );
-              })}
+            <div className="flex items-start gap-2.5">
+              <Clock size={14} className="text-brand-neutral-400 shrink-0 mt-0.5" />
+              <p
+                className="text-[13px] text-brand-neutral-700"
+                style={{ fontWeight: 400, lineHeight: 1.5 }}
+              >
+                {facility.hoursNote || "Hours not listed yet."}
+              </p>
             </div>
           </div>
         </div>

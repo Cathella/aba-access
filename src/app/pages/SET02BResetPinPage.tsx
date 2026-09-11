@@ -1,7 +1,8 @@
 import { useState } from "react";
 import { useNavigate } from "react-router";
-import { ArrowLeft, Eye, EyeOff, Send } from "lucide-react";
+import { ArrowLeft, Eye, EyeOff } from "lucide-react";
 import { toast } from "sonner";
+import { useAuth } from "../../lib/auth-context";
 
 /* ══════════════════════════════════════════════
    Error banner
@@ -83,28 +84,18 @@ function PinField({
 
 export function SET02BResetPinPage() {
   const navigate = useNavigate();
+  const { resetPinAuthenticated } = useAuth();
 
-  const [codeSent, setCodeSent] = useState(false);
-  const [code, setCode] = useState("");
   const [newPin, setNewPin] = useState("");
   const [confirmPin, setConfirmPin] = useState("");
   const [error, setError] = useState("");
+  const [saving, setSaving] = useState(false);
 
-  function handleSendCode() {
-    setCodeSent(true);
-    toast.success("Code sent to your phone");
-  }
-
-  function handleSave() {
+  async function handleSave() {
     setError("");
 
-    if (!code) {
-      setError("Please enter the verification code.");
-      return;
-    }
-
     if (!newPin || !confirmPin) {
-      setError("Please fill in all PIN fields.");
+      setError("Please fill in both PIN fields.");
       return;
     }
 
@@ -118,8 +109,16 @@ export function SET02BResetPinPage() {
       return;
     }
 
-    toast.success("PIN reset");
-    navigate("/set-02");
+    setSaving(true);
+    try {
+      await resetPinAuthenticated(newPin);
+      toast.success("PIN reset");
+      navigate("/home-01");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to reset PIN.");
+    } finally {
+      setSaving(false);
+    }
   }
 
   return (
@@ -149,96 +148,31 @@ export function SET02BResetPinPage() {
               className="text-[13px] text-brand-neutral-600"
               style={{ fontWeight: 400 }}
             >
-              We'll send a code to your phone to reset your PIN.
+              You're signed in, so you can set a new PIN without entering your current one.
             </p>
           </div>
 
           {/* Error banner */}
           {error && <ErrorBanner message={error} />}
 
-          {/* Step 1: Send code */}
+          {/* New PIN */}
           <div className="bg-brand-neutral-0 border border-brand-neutral-200 rounded-2xl p-4 space-y-4">
-            <p
-              className="text-[12px] text-brand-neutral-500"
-              style={{ fontWeight: 500, letterSpacing: "0.02em" }}
-            >
-              STEP 1 — VERIFY IDENTITY
-            </p>
+            <PinField
+              label="New PIN"
+              value={newPin}
+              onChange={setNewPin}
+              placeholder="Enter new PIN"
+              hasError={!!error && error === "PINs do not match."}
+            />
 
-            <button
-              onClick={handleSendCode}
-              disabled={codeSent}
-              className={`w-full h-10 rounded-xl text-[13px] flex items-center justify-center gap-2 border-[1.5px] transition-colors ${
-                codeSent
-                  ? "bg-brand-neutral-100 border-brand-neutral-200 text-brand-neutral-400 cursor-not-allowed"
-                  : "bg-brand-neutral-0 border-brand-neutral-900 text-brand-neutral-900 hover:bg-brand-neutral-100"
-              }`}
-              style={{ fontWeight: 500 }}
-            >
-              <Send size={14} />
-              {codeSent ? "Code sent" : "Send code"}
-            </button>
-
-            {codeSent && (
-              <div>
-                <label
-                  className="block text-[12px] text-brand-neutral-700 mb-1.5"
-                  style={{ fontWeight: 500 }}
-                >
-                  Enter code
-                </label>
-                <input
-                  type="text"
-                  inputMode="numeric"
-                  maxLength={6}
-                  value={code}
-                  onChange={(e) => {
-                    const v = e.target.value.replace(/\D/g, "");
-                    if (v.length <= 6) setCode(v);
-                  }}
-                  placeholder="6-digit code"
-                  className="w-full px-3 py-2.5 bg-brand-neutral-0 border border-brand-neutral-200 text-[13px] text-brand-neutral-900 placeholder:text-brand-neutral-300 focus:outline-none focus:border-brand-primary-300 transition-colors"
-                  style={{ borderRadius: 6 }}
-                />
-              </div>
-            )}
+            <PinField
+              label="Confirm PIN"
+              value={confirmPin}
+              onChange={setConfirmPin}
+              placeholder="Re-enter new PIN"
+              hasError={!!error && error === "PINs do not match."}
+            />
           </div>
-
-          {/* Step 2: New PIN */}
-          {codeSent && (
-            <div className="bg-brand-neutral-0 border border-brand-neutral-200 rounded-2xl p-4 space-y-4">
-              <p
-                className="text-[12px] text-brand-neutral-500"
-                style={{ fontWeight: 500, letterSpacing: "0.02em" }}
-              >
-                STEP 2 — SET NEW PIN
-              </p>
-
-              <PinField
-                label="New PIN"
-                value={newPin}
-                onChange={setNewPin}
-                placeholder="Enter new PIN"
-                hasError={!!error && error === "PINs do not match."}
-              />
-
-              <PinField
-                label="Confirm PIN"
-                value={confirmPin}
-                onChange={setConfirmPin}
-                placeholder="Re-enter new PIN"
-                hasError={!!error && error === "PINs do not match."}
-              />
-            </div>
-          )}
-
-          {/* Proof-of-concept note */}
-          <p
-            className="text-[11px] text-brand-neutral-400 px-1"
-            style={{ fontWeight: 400 }}
-          >
-            Proof-of-concept only — no real SMS is sent.
-          </p>
         </div>
       </div>
 
@@ -246,15 +180,11 @@ export function SET02BResetPinPage() {
       <div className="fixed bottom-0 left-0 right-0 z-10 bg-brand-neutral-0 border-t border-brand-neutral-200 px-5 pt-3 pb-5">
         <button
           onClick={handleSave}
-          disabled={!codeSent}
-          className={`w-full h-11 rounded-xl text-[14px] flex items-center justify-center border-[1.5px] transition-colors ${
-            codeSent
-              ? "border-brand-neutral-900 bg-brand-primary-300 hover:bg-brand-primary-400 text-brand-neutral-900"
-              : "border-brand-neutral-200 bg-brand-neutral-100 text-brand-neutral-400 cursor-not-allowed"
-          }`}
+          disabled={saving}
+          className="w-full h-11 rounded-xl text-[14px] flex items-center justify-center border-[1.5px] border-brand-neutral-900 bg-brand-primary-300 hover:bg-brand-primary-400 text-brand-neutral-900 transition-colors disabled:opacity-60"
           style={{ fontWeight: 500 }}
         >
-          Save new PIN
+          {saving ? "Saving…" : "Save new PIN"}
         </button>
       </div>
     </div>

@@ -2,7 +2,7 @@ import { useState } from "react";
 import { useNavigate } from "react-router";
 import { ArrowLeft, UserCircle, Copy, ChevronDown } from "lucide-react";
 import { toast } from "sonner";
-import { getProfile, saveProfile } from "../profileStore";
+import { getProfile } from "../profileStore";
 import { useAuth } from "../../lib/auth-context";
 
 /* ══════════════════════════════════════════════
@@ -43,23 +43,24 @@ const inputStyle = { borderRadius: 6 };
 
 export function SET01ProfileSettingsPage() {
   const navigate = useNavigate();
-  const { profile } = useAuth();
+  const { profile, updateProfile } = useAuth();
   const localProfile = getProfile();
 
   /* ── Form state ── */
   const [fullName, setFullName] = useState(profile.fullName || localProfile.fullName || "");
   const phone = profile.phone || localProfile.phone || "";
-  const [email, setEmail] = useState("");
+  const [email, setEmail] = useState(profile.email || localProfile.email || "");
   const [district, setDistrict] = useState(profile.district || localProfile.district || "");
   const [areaTown, setAreaTown] = useState(profile.areaTown || localProfile.areaTown || "");
   const [dob, setDob] = useState(profile.dob || localProfile.dob || "");
 
-  const [emergencyName, setEmergencyName] = useState("");
-  const [emergencyPhone, setEmergencyPhone] = useState("");
+  const [emergencyName, setEmergencyName] = useState(profile.emergencyName || localProfile.emergencyName || "");
+  const [emergencyPhone, setEmergencyPhone] = useState(profile.emergencyPhone || localProfile.emergencyPhone || "");
 
   /* ── Validation ── */
   const [nameError, setNameError] = useState("");
   const [touched, setTouched] = useState(false);
+  const [saving, setSaving] = useState(false);
 
   function validateName(value: string) {
     if (!value.trim()) {
@@ -81,17 +82,27 @@ export function SET01ProfileSettingsPage() {
   }
 
   /* ── Save ── */
-  function handleSave() {
+  async function handleSave() {
     setTouched(true);
     if (!validateName(fullName)) return;
-    saveProfile({
-      fullName: fullName.trim(),
-      district,
-      areaTown: areaTown.trim(),
-      dob,
-      profileComplete: true,
-    });
-    toast.success("Profile updated");
+    setSaving(true);
+    try {
+      await updateProfile({
+        fullName: fullName.trim(),
+        district,
+        areaTown: areaTown.trim(),
+        dob,
+        gender: profile.gender || localProfile.gender || undefined,
+        email: email.trim(),
+        emergencyName: emergencyName.trim(),
+        emergencyPhone: emergencyPhone.trim(),
+      });
+      toast.success("Profile updated");
+    } catch {
+      toast.error("Failed to update profile");
+    } finally {
+      setSaving(false);
+    }
   }
 
   return (
@@ -401,10 +412,11 @@ export function SET01ProfileSettingsPage() {
         {/* Primary – Save changes */}
         <button
           onClick={handleSave}
-          className="flex-1 h-11 rounded-xl text-[14px] flex items-center justify-center border-[1.5px] border-brand-neutral-900 bg-brand-primary-300 hover:bg-brand-primary-400 text-brand-neutral-900 transition-colors"
+          disabled={saving}
+          className="flex-1 h-11 rounded-xl text-[14px] flex items-center justify-center border-[1.5px] border-brand-neutral-900 bg-brand-primary-300 hover:bg-brand-primary-400 text-brand-neutral-900 transition-colors disabled:opacity-60"
           style={{ fontWeight: 500 }}
         >
-          Save changes
+          {saving ? "Saving…" : "Save changes"}
         </button>
       </div>
     </div>

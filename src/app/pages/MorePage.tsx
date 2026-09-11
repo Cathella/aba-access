@@ -1,5 +1,6 @@
 import { useNavigate } from "react-router";
 import { BottomNav } from "../components/BottomNav";
+import { useAuth } from "../../lib/auth-context";
 import {
   Users,
   HelpCircle,
@@ -9,7 +10,6 @@ import {
   Bell,
   CreditCard,
   Lock,
-  Info,
   UserCircle,
   LogOut,
 } from "lucide-react";
@@ -36,10 +36,6 @@ const settingsItems: MenuItem[] = [
   { icon: Shield, label: "Privacy policy", route: "/set-05" },
   { icon: FileText, label: "Terms of service", route: "/set-06" },
   { icon: HelpCircle, label: "Help & support", route: "/set-07" },
-];
-
-const secondaryItems: MenuItem[] = [
-  { icon: Info, label: "About AbaAccess", route: "#" },
 ];
 
 /* ══════════════════════════════════════════════
@@ -99,6 +95,7 @@ function SettingsList({
 
 export function MorePage() {
   const navigate = useNavigate();
+  const { profile } = useAuth();
 
   return (
     <div className="min-h-screen bg-brand-neutral-100 flex flex-col">
@@ -129,13 +126,13 @@ export function MorePage() {
                   className="text-[16px] text-brand-neutral-900"
                   style={{ fontWeight: 600 }}
                 >
-                  Catherine Nakitto
+                  {profile.fullName || "—"}
                 </p>
                 <p
                   className="text-[13px] text-brand-neutral-500 mt-0.5"
                   style={{ fontWeight: 400 }}
                 >
-                  +256 7XX XXX XXX
+                  {profile.phone || "—"}
                 </p>
               </div>
             </div>
@@ -161,11 +158,6 @@ export function MorePage() {
             SETTINGS
           </p>
           <SettingsList items={settingsItems} navigate={navigate} />
-        </div>
-
-        {/* ── C) Secondary section ── */}
-        <div className="px-5 pt-4 pb-2">
-          <SettingsList items={secondaryItems} navigate={navigate} />
         </div>
 
         {/* ── D) Log out ── */}

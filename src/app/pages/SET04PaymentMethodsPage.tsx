@@ -1,4 +1,3 @@
-import { useState } from "react";
 import { useNavigate } from "react-router";
 import {
   ArrowLeft,
@@ -7,65 +6,8 @@ import {
   Smartphone,
   Info,
   CircleDot,
-  Circle,
 } from "lucide-react";
 import { toast } from "sonner";
-
-/* ══════════════════════════════════════════════
-   Radio option
-   ══════════════════════════════════════════════ */
-
-function RadioOption({
-  label,
-  caption,
-  selected,
-  onSelect,
-  disabled = false,
-  isLast = false,
-}: {
-  label: string;
-  caption?: string;
-  selected: boolean;
-  onSelect: () => void;
-  disabled?: boolean;
-  isLast?: boolean;
-}) {
-  return (
-    <button
-      type="button"
-      onClick={() => !disabled && onSelect()}
-      disabled={disabled}
-      className={`w-full flex items-center gap-3.5 px-4 py-3.5 text-left transition-colors ${
-        !disabled ? "hover:bg-brand-neutral-100" : ""
-      } ${!isLast ? "border-b border-brand-neutral-200" : ""}`}
-    >
-      {selected ? (
-        <CircleDot size={20} className="text-brand-primary-500 shrink-0" />
-      ) : (
-        <Circle
-          size={20}
-          className={`shrink-0 ${disabled ? "text-brand-neutral-200" : "text-brand-neutral-300"}`}
-        />
-      )}
-      <div className="flex-1 min-w-0">
-        <p
-          className={`text-[14px] ${disabled ? "text-brand-neutral-400" : "text-brand-neutral-900"}`}
-          style={{ fontWeight: 500 }}
-        >
-          {label}
-        </p>
-        {caption && (
-          <p
-            className="text-[11px] text-brand-neutral-400 mt-0.5"
-            style={{ fontWeight: 400 }}
-          >
-            {caption}
-          </p>
-        )}
-      </div>
-    </button>
-  );
-}
 
 /* ══════════════════════════════════════════════
    Mobile Money row
@@ -119,10 +61,6 @@ function MobileMoneyRow({
 
 export function SET04PaymentMethodsPage() {
   const navigate = useNavigate();
-
-  const [defaultMethod, setDefaultMethod] = useState<"wallet" | "mobile">(
-    "wallet"
-  );
 
   return (
     <div className="min-h-screen bg-brand-neutral-100 flex flex-col">
@@ -223,22 +161,15 @@ export function SET04PaymentMethodsPage() {
             DEFAULT PAYMENT METHOD
           </p>
           <div className="bg-brand-neutral-0 border border-brand-neutral-200 rounded-2xl overflow-hidden">
-            <RadioOption
-              label="Aba Wallet"
-              selected={defaultMethod === "wallet"}
-              onSelect={() => {
-                setDefaultMethod("wallet");
-                toast.success("Default set to Aba Wallet");
-              }}
-            />
-            <RadioOption
-              label="Mobile Money"
-              caption="Link an account first"
-              selected={defaultMethod === "mobile"}
-              onSelect={() => {}}
-              disabled
-              isLast
-            />
+            <div className="flex items-center gap-3.5 px-4 py-3.5">
+              <CircleDot size={20} className="text-brand-primary-500 shrink-0" />
+              <p
+                className="flex-1 min-w-0 text-[14px] text-brand-neutral-900"
+                style={{ fontWeight: 500 }}
+              >
+                Aba Wallet
+              </p>
+            </div>
           </div>
         </div>
 
@@ -253,7 +184,7 @@ export function SET04PaymentMethodsPage() {
               className="text-[11px] text-brand-neutral-400"
               style={{ fontWeight: 400 }}
             >
-              Your default method is used for package purchases and top-ups.
+              Aba Wallet is the only payment method available right now.
             </p>
           </div>
         </div>

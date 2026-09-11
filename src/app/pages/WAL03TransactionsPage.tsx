@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { useNavigate } from "react-router";
 import {
   ArrowLeft,
@@ -9,72 +9,15 @@ import {
   Package,
 } from "lucide-react";
 import { BottomNav } from "../components/BottomNav";
-
-/* ══════════════════════════════════════════════
-   Types & data
-   ══════════════════════════════════════════════ */
-
-type TxType = "package" | "topup" | "oop";
-type TxStatus = "completed" | "pending" | "failed";
-
-interface Transaction {
-  id: string;
-  type: TxType;
-  title: string;
-  subtitle: string;
-  amount: string;
-  amountSign: "credit" | "debit";
-  status: TxStatus;
-  date: string;
-  time: string;
-}
-
-const transactions: Transaction[] = [
-  {
-    id: "TX-00091",
-    type: "package",
-    title: "Package purchase",
-    subtitle: "Care Bundle 50K",
-    amount: "- UGX 50,000",
-    amountSign: "debit",
-    status: "completed",
-    date: "Today",
-    time: "2:34 PM",
-  },
-  {
-    id: "TX-00092",
-    type: "topup",
-    title: "Top up",
-    subtitle: "Airtel Money",
-    amount: "+ UGX 20,000",
-    amountSign: "credit",
-    status: "pending",
-    date: "Today",
-    time: "1:10 PM",
-  },
-  {
-    id: "TX-00088",
-    type: "topup",
-    title: "Top up",
-    subtitle: "MTN Mobile Money",
-    amount: "+ UGX 100,000",
-    amountSign: "credit",
-    status: "completed",
-    date: "Yesterday",
-    time: "10:22 AM",
-  },
-  {
-    id: "TX-00074",
-    type: "oop",
-    title: "Out-of-pocket",
-    subtitle: "Sunrise Diagnostics",
-    amount: "- UGX 15,000",
-    amountSign: "debit",
-    status: "completed",
-    date: "12 Feb 2026",
-    time: "3:45 PM",
-  },
-];
+import { supabase } from "../../lib/supabase";
+import {
+  formatTxDate,
+  formatTxTime,
+  formatUgx,
+  type WalletTransaction,
+  type WalletTxType,
+  type WalletTxStatus,
+} from "../../lib/wallet";
 
 type FilterKey = "all" | "packages" | "topups" | "oop";
 
@@ -89,7 +32,7 @@ const filters: { key: FilterKey; label: string }[] = [
    Helpers
    ══════════════════════════════════════════════ */
 
-function statusClasses(s: TxStatus) {
+function statusClasses(s: WalletTxStatus) {
   switch (s) {
     case "completed":
       return "bg-brand-success-50 text-brand-success-500";
@@ -100,7 +43,7 @@ function statusClasses(s: TxStatus) {
   }
 }
 
-function statusLabel(s: TxStatus) {
+function statusLabel(s: WalletTxStatus) {
   return s.charAt(0).toUpperCase() + s.slice(1);
 }
 
@@ -112,13 +55,26 @@ export function WAL03TransactionsPage() {
   const navigate = useNavigate();
   const [activeFilter, setActiveFilter] = useState<FilterKey>("all");
   const [query, setQuery] = useState("");
+  const [transactions, setTransactions] = useState<WalletTransaction[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    supabase
+      .from("wallet_transactions")
+      .select("id, type, title, subtitle, amount_ugx, direction, status, created_at")
+      .order("created_at", { ascending: false })
+      .then(({ data }) => {
+        setTransactions(data ?? []);
+        setLoading(false);
+      });
+  }, []);
 
   const filtered = useMemo(() => {
     let list = transactions;
     if (activeFilter !== "all") {
-      const typeMap: Record<FilterKey, TxType | null> = {
+      const typeMap: Record<FilterKey, WalletTxType | null> = {
         all: null,
-        packages: "package",
+        packages: "package_purchase",
         topups: "topup",
         oop: "oop",
       };
@@ -130,16 +86,15 @@ export function WAL03TransactionsPage() {
       list = list.filter(
         (tx) =>
           tx.title.toLowerCase().includes(q) ||
-          tx.subtitle.toLowerCase().includes(q) ||
-          tx.id.toLowerCase().includes(q)
+          tx.subtitle.toLowerCase().includes(q)
       );
     }
     return list;
-  }, [activeFilter, query]);
+  }, [activeFilter, query, transactions]);
 
   const isEmpty = filtered.length === 0;
   const isEmptyAll =
-    activeFilter === "all" && !query.trim() && transactions.length === 0;
+    activeFilter === "all" && !query.trim() && !loading && transactions.length === 0;
 
   return (
     <div className="min-h-screen bg-brand-neutral-100 flex flex-col">

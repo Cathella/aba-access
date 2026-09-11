@@ -2,6 +2,7 @@ import { useState } from "react";
 import { useNavigate } from "react-router";
 import { ArrowLeft, Eye, EyeOff } from "lucide-react";
 import { toast } from "sonner";
+import { useAuth } from "../../lib/auth-context";
 
 /* ══════════════════════════════════════════════
    Inline error banner
@@ -83,13 +84,15 @@ function PinField({
 
 export function SET02AChangePinPage() {
   const navigate = useNavigate();
+  const { changePin } = useAuth();
 
   const [currentPin, setCurrentPin] = useState("");
   const [newPin, setNewPin] = useState("");
   const [confirmPin, setConfirmPin] = useState("");
   const [error, setError] = useState("");
+  const [saving, setSaving] = useState(false);
 
-  function handleUpdate() {
+  async function handleUpdate() {
     setError("");
 
     if (!currentPin || !newPin || !confirmPin) {
@@ -107,8 +110,16 @@ export function SET02AChangePinPage() {
       return;
     }
 
-    toast.success("PIN updated");
-    navigate("/set-02");
+    setSaving(true);
+    try {
+      await changePin(currentPin, newPin);
+      toast.success("PIN updated");
+      navigate("/home-01");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to update PIN.");
+    } finally {
+      setSaving(false);
+    }
   }
 
   return (
@@ -177,10 +188,11 @@ export function SET02AChangePinPage() {
       <div className="fixed bottom-0 left-0 right-0 z-10 bg-brand-neutral-0 border-t border-brand-neutral-200 px-5 pt-3 pb-5">
         <button
           onClick={handleUpdate}
-          className="w-full h-11 rounded-xl text-[14px] flex items-center justify-center border-[1.5px] border-brand-neutral-900 bg-brand-primary-300 hover:bg-brand-primary-400 text-brand-neutral-900 transition-colors"
+          disabled={saving}
+          className="w-full h-11 rounded-xl text-[14px] flex items-center justify-center border-[1.5px] border-brand-neutral-900 bg-brand-primary-300 hover:bg-brand-primary-400 text-brand-neutral-900 transition-colors disabled:opacity-60"
           style={{ fontWeight: 500 }}
         >
-          Update PIN
+          {saving ? "Updating…" : "Update PIN"}
         </button>
       </div>
     </div>

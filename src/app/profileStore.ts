@@ -11,6 +11,9 @@ export interface UserProfile {
   gender: string;    // "Male" | "Female" | "Other" | ""
   memberId: string;
   phone: string;
+  email: string;
+  emergencyName: string;
+  emergencyPhone: string;
   profileComplete: boolean;
 }
 
@@ -24,6 +27,9 @@ const defaultProfile: UserProfile = {
   gender: "",
   memberId: "",
   phone: "",
+  email: "",
+  emergencyName: "",
+  emergencyPhone: "",
   profileComplete: false,
 };
 
@@ -42,6 +48,14 @@ export function saveProfile(profile: Partial<UserProfile>): UserProfile {
   const updated = { ...current, ...profile };
   localStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
   return updated;
+}
+
+/** Wipes the local profile cache — used when a new identity begins
+ *  (fresh signup) or ends (sign out), so one account's data can't
+ *  leak into the next on a shared/reused device. */
+export function clearProfile(): UserProfile {
+  localStorage.removeItem(STORAGE_KEY);
+  return { ...defaultProfile };
 }
 
 export function isProfileComplete(): boolean {

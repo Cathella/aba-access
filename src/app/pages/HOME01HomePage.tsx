@@ -22,8 +22,8 @@ import { useNavigate } from "react-router";
 import { useState, useEffect } from "react";
 import { supabase } from "../../lib/supabase";
 import { PACKAGE_CATALOG, daysRemaining } from "../../lib/packageCatalog";
+import { computeBalance, formatUgx } from "../../lib/wallet";
 import { BottomNav } from "../components/BottomNav";
-import { getGreetingName } from "../profileStore";
 import { useAuth } from "../../lib/auth-context";
 import {
   BarChart,
@@ -83,54 +83,23 @@ const quickActions = [
   },
 ];
 
-/* ══════════════════════════════════════════════
-   Recent visits data
-   ══════════════════════════════════════════════ */
-
-const recentVisits = [
-  {
-    id: "v1",
-    facility: "Mukono Family Clinic",
-    service: "Consultation",
-    date: "12 Feb 2026",
-    icon: Stethoscope,
-  },
-  {
-    id: "v2",
-    facility: "Sunrise Diagnostics",
-    service: "Lab",
-    date: "8 Feb 2026",
-    icon: FlaskConical,
-  },
-];
-
 /* ═════════════════════════════════════════════
-   Nearby partners data
+   Partner facility helpers
    ══════════════════════════════════════════════ */
 
-const nearbyPartners = [
-  {
-    id: "f1",
-    name: "Mukono Family Clinic",
-    type: "Clinic",
-    distance: "1.2 km",
-    icon: Stethoscope,
-  },
-  {
-    id: "f2",
-    name: "Sunrise Diagnostics",
-    type: "Lab",
-    distance: "2.1 km",
-    icon: FlaskConical,
-  },
-  {
-    id: "f3",
-    name: "Divine Care Pharmacy",
-    type: "Pharmacy",
-    distance: "2.8 km",
-    icon: Pill,
-  },
-];
+type PartnerFacility = {
+  id: string;
+  name: string;
+  type: string;
+  region: string | null;
+  icon: typeof Stethoscope;
+};
+
+const facilityTypeIcon: Record<string, typeof Stethoscope> = {
+  Clinic: Stethoscope,
+  Lab: FlaskConical,
+  Pharmacy: Pill,
+};
 
 const BAR_COLORS = [
   "var(--brand-primary-400)",
@@ -154,6 +123,33 @@ export function HOME01HomePage() {
   const [pendingApprovalsCount, setPendingApprovalsCount] = useState<number>(0);
   const [visitsWeekData, setVisitsWeekData] = useState<{ name: string; visits: number }[]>([]);
   const [visitsMonthData, setVisitsMonthData] = useState<{ name: string; visits: number }[]>([]);
+  const [walletBalance, setWalletBalance] = useState<number | null>(null);
+  const [nearbyPartners, setNearbyPartners] = useState<PartnerFacility[]>([]);
+  const [partnersLoading, setPartnersLoading] = useState(true);
+
+  useEffect(() => {
+    supabase
+      .from("facilities")
+      .select("id, name, types, region")
+      .eq("is_active", true)
+      .order("name")
+      .limit(3)
+      .then(({ data }) => {
+        setNearbyPartners(
+          (data ?? []).map((f) => {
+            const primaryType = (f.types ?? [])[0] ?? "Clinic";
+            return {
+              id: f.id,
+              name: f.name,
+              type: primaryType,
+              region: f.region,
+              icon: facilityTypeIcon[primaryType] ?? Stethoscope,
+            };
+          })
+        );
+        setPartnersLoading(false);
+      });
+  }, []);
 
   useEffect(() => {
     const now = new Date().toISOString();
@@ -170,6 +166,9 @@ export function HOME01HomePage() {
         .from("bookings")
         .select("id", { count: "exact", head: true })
         .in("status", ["Pending", "Confirmed"]),
+      supabase
+        .from("wallet_transactions")
+        .select("amount_ugx, direction, status"),
       supabase
         .from("approval_requests")
         .select("id, facility_name, service_type, patient_name")
@@ -192,10 +191,11 @@ export function HOME01HomePage() {
           .eq("status", "Approved")
           .gte("responded_at", startOfMonth.toISOString());
       })(),
-    ]).then(([{ data: pkgs }, { count: depCount }, { count: bookingCount }, { data: aprData }, { count: aprCount }, { data: visitsData }]) => {
+    ]).then(([{ data: pkgs }, { count: depCount }, { count: bookingCount }, { data: walletData }, { data: aprData }, { count: aprCount }, { data: visitsData }]) => {
       setUserPackages(pkgs ?? []);
       setDependentsCount(depCount ?? 0);
       setUpcomingBookingsCount(bookingCount ?? 0);
+      setWalletBalance(computeBalance(walletData ?? []));
       setPendingApproval(aprData?.[0] ?? null);
       setPendingApprovalsCount(aprCount ?? 0);
 
@@ -227,6 +227,7 @@ export function HOME01HomePage() {
   const [visitsPeriod, setVisitsPeriod] = useState<"week" | "month">("week");
   const [abaIdHidden, setAbaIdHidden] = useState(false);
 
+  const greetingName = profile.fullName ? profile.fullName.split(" ")[0] : "there";
   const memberId = profile.memberId || "—";
   const displayId = abaIdHidden ? `${memberId.slice(0, 6)}•••` : memberId;
 
@@ -242,7 +243,7 @@ export function HOME01HomePage() {
               className="text-[22px] tracking-[-0.01em] text-brand-neutral-900"
               style={{ fontWeight: 600 }}
             >
-              Hi {getGreetingName()}
+              Hi {greetingName}
             </h2>
             <p
               className="text-[12px] text-brand-neutral-900 mt-0.5"
@@ -513,7 +514,7 @@ export function HOME01HomePage() {
                 className="text-[16px] text-brand-neutral-900 mb-3"
                 style={{ fontWeight: 600 }}
               >
-                UGX 0
+                {walletBalance === null ? "—" : formatUgx(walletBalance)}
               </p>
               <button
                 onClick={() => navigate("/wal-01")}
@@ -719,48 +720,62 @@ export function HOME01HomePage() {
             </button>
           </div>
 
-          <div className="bg-brand-neutral-0 border border-brand-neutral-200 rounded-2xl overflow-hidden">
-            {nearbyPartners.map((p, i) => {
-              const Icon = p.icon;
-              return (
-                <div
-                  key={p.id}
-                  className={`flex items-center gap-3 px-4 py-3.5 ${
-                    i < nearbyPartners.length - 1
-                      ? "border-b border-brand-neutral-200"
-                      : ""
-                  }`}
-                >
-                  <div className="w-9 h-9 rounded-xl bg-brand-primary-50 flex items-center justify-center shrink-0">
-                    <Icon size={16} className="text-brand-primary-500" />
+          {partnersLoading ? (
+            <div className="h-16 flex items-center justify-center">
+              <div className="w-5 h-5 rounded-full border-2 border-brand-primary-500 border-t-transparent animate-spin" />
+            </div>
+          ) : nearbyPartners.length === 0 ? (
+            <div className="bg-brand-neutral-0 border border-brand-neutral-200 rounded-2xl p-4">
+              <p className="text-[12px] text-brand-neutral-500" style={{ fontWeight: 400 }}>
+                No partner facilities listed yet.
+              </p>
+            </div>
+          ) : (
+            <div className="bg-brand-neutral-0 border border-brand-neutral-200 rounded-2xl overflow-hidden">
+              {nearbyPartners.map((p, i) => {
+                const Icon = p.icon;
+                return (
+                  <div
+                    key={p.id}
+                    className={`flex items-center gap-3 px-4 py-3.5 ${
+                      i < nearbyPartners.length - 1
+                        ? "border-b border-brand-neutral-200"
+                        : ""
+                    }`}
+                  >
+                    <div className="w-9 h-9 rounded-xl bg-brand-primary-50 flex items-center justify-center shrink-0">
+                      <Icon size={16} className="text-brand-primary-500" />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p
+                        className="text-[13px] text-brand-neutral-900 truncate"
+                        style={{ fontWeight: 500 }}
+                      >
+                        {p.name}
+                      </p>
+                      <p
+                        className="text-[11px] text-brand-neutral-500 mt-0.5"
+                        style={{ fontWeight: 400 }}
+                      >
+                        {p.type}
+                      </p>
+                    </div>
+                    {p.region && (
+                      <div className="flex items-center gap-1 shrink-0">
+                        <MapPin size={11} className="text-brand-neutral-300" />
+                        <span
+                          className="text-[11px] text-brand-neutral-500"
+                          style={{ fontWeight: 400 }}
+                        >
+                          {p.region}
+                        </span>
+                      </div>
+                    )}
                   </div>
-                  <div className="flex-1 min-w-0">
-                    <p
-                      className="text-[13px] text-brand-neutral-900 truncate"
-                      style={{ fontWeight: 500 }}
-                    >
-                      {p.name}
-                    </p>
-                    <p
-                      className="text-[11px] text-brand-neutral-500 mt-0.5"
-                      style={{ fontWeight: 400 }}
-                    >
-                      {p.type}
-                    </p>
-                  </div>
-                  <div className="flex items-center gap-1 shrink-0">
-                    <MapPin size={11} className="text-brand-neutral-300" />
-                    <span
-                      className="text-[11px] text-brand-neutral-500"
-                      style={{ fontWeight: 400 }}
-                    >
-                      {p.distance}
-                    </span>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
+                );
+              })}
+            </div>
+          )}
         </div>
       </div>
 

@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate } from "react-router";
 import {
   ArrowLeft,
@@ -10,9 +10,10 @@ import {
   Pill,
   CheckCircle,
 } from "lucide-react";
+import { supabase } from "../../lib/supabase";
 
 /* ══════════════════════════════════════════════
-   Data
+   Types
    ══════════════════════════════════════════════ */
 
 type FacilityType = "Clinic" | "Lab" | "Pharmacy";
@@ -21,77 +22,9 @@ interface Facility {
   id: string;
   name: string;
   types: FacilityType[];
-  distance: string;
-  distanceKm: number;
+  region: string | null;
   isOpen: boolean;
 }
-
-const facilities: Facility[] = [
-  {
-    id: "f1",
-    name: "Mukono Family Clinic",
-    types: ["Clinic"],
-    distance: "1.2 km",
-    distanceKm: 1.2,
-    isOpen: true,
-  },
-  {
-    id: "f2",
-    name: "Sunrise Diagnostics",
-    types: ["Lab"],
-    distance: "2.1 km",
-    distanceKm: 2.1,
-    isOpen: true,
-  },
-  {
-    id: "f3",
-    name: "Divine Care Pharmacy",
-    types: ["Pharmacy"],
-    distance: "2.8 km",
-    distanceKm: 2.8,
-    isOpen: true,
-  },
-  {
-    id: "f4",
-    name: "Kisaasi Medical Centre",
-    types: ["Clinic", "Lab"],
-    distance: "3.0 km",
-    distanceKm: 3.0,
-    isOpen: false,
-  },
-  {
-    id: "f5",
-    name: "Wandegeya Health Hub",
-    types: ["Clinic"],
-    distance: "4.4 km",
-    distanceKm: 4.4,
-    isOpen: true,
-  },
-  {
-    id: "f6",
-    name: "Mengo Diagnostics",
-    types: ["Lab"],
-    distance: "5.2 km",
-    distanceKm: 5.2,
-    isOpen: true,
-  },
-  {
-    id: "f7",
-    name: "Ntinda Family Pharmacy",
-    types: ["Pharmacy"],
-    distance: "6.0 km",
-    distanceKm: 6.0,
-    isOpen: true,
-  },
-  {
-    id: "f8",
-    name: "Bukoto Care Point",
-    types: ["Clinic", "Pharmacy"],
-    distance: "6.5 km",
-    distanceKm: 6.5,
-    isOpen: true,
-  },
-];
 
 /* ── Style helpers ── */
 
@@ -138,6 +71,28 @@ export function FAC01FacilitiesListPage() {
   );
   const [openNow, setOpenNow] = useState(false);
   const [search, setSearch] = useState("");
+  const [facilities, setFacilities] = useState<Facility[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    supabase
+      .from("facilities")
+      .select("id, name, types, region, is_open")
+      .eq("is_active", true)
+      .order("name")
+      .then(({ data }) => {
+        setFacilities(
+          (data ?? []).map((f) => ({
+            id: f.id,
+            name: f.name,
+            types: (f.types ?? []) as FacilityType[],
+            region: f.region,
+            isOpen: f.is_open,
+          }))
+        );
+        setLoading(false);
+      });
+  }, []);
 
   const filtered = facilities.filter((f) => {
     const matchType =
@@ -227,20 +182,26 @@ export function FAC01FacilitiesListPage() {
         </div>
 
         {/* Results count */}
-        <div className="px-5 pb-2.5">
-          <p
-            className="text-[12px] text-brand-neutral-500 px-1"
-            style={{ fontWeight: 400 }}
-          >
-            {filtered.length}{" "}
-            {filtered.length === 1 ? "facility" : "facilities"} found
-          </p>
-        </div>
+        {!loading && (
+          <div className="px-5 pb-2.5">
+            <p
+              className="text-[12px] text-brand-neutral-500 px-1"
+              style={{ fontWeight: 400 }}
+            >
+              {filtered.length}{" "}
+              {filtered.length === 1 ? "facility" : "facilities"} found
+            </p>
+          </div>
+        )}
 
         {/* Facility cards */}
         <div className="px-5 space-y-2.5">
-          {filtered.map((f) => {
-            const primaryType = f.types[0];
+          {loading ? (
+            <div className="h-40 flex items-center justify-center">
+              <div className="w-5 h-5 rounded-full border-2 border-brand-primary-500 border-t-transparent animate-spin" />
+            </div>
+          ) : filtered.map((f) => {
+            const primaryType = f.types[0] ?? "Clinic";
             const PrimaryIcon = typeIcon[primaryType];
 
             return (
@@ -295,16 +256,18 @@ export function FAC01FacilitiesListPage() {
                       </span>
                     </div>
 
-                    {/* Meta row: Distance + AbaAccess badge */}
+                    {/* Meta row: Region + AbaAccess badge */}
                     <div className="flex items-center gap-3">
-                      {/* Distance */}
-                      <span className="inline-flex items-center gap-1 text-[11px] text-brand-neutral-500">
-                        <MapPin
-                          size={10}
-                          className="text-brand-neutral-300"
-                        />
-                        {f.distance}
-                      </span>
+                      {/* Region */}
+                      {f.region && (
+                        <span className="inline-flex items-center gap-1 text-[11px] text-brand-neutral-500">
+                          <MapPin
+                            size={10}
+                            className="text-brand-neutral-300"
+                          />
+                          {f.region}
+                        </span>
+                      )}
 
                       {/* AbaAccess badge */}
                       <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-brand-success-50 text-[10px] text-brand-success-500"
@@ -327,7 +290,7 @@ export function FAC01FacilitiesListPage() {
           })}
 
           {/* Empty state */}
-          {filtered.length === 0 && (
+          {!loading && filtered.length === 0 && (
             <div className="py-16 flex flex-col items-center">
               <div className="w-12 h-12 rounded-2xl bg-brand-neutral-200 flex items-center justify-center mb-4">
                 <Search size={20} className="text-brand-neutral-500" />
@@ -342,7 +305,9 @@ export function FAC01FacilitiesListPage() {
                 className="text-[12px] text-brand-neutral-500 text-center"
                 style={{ fontWeight: 400, maxWidth: 240 }}
               >
-                Try a different search term or adjust your filters.
+                {facilities.length === 0
+                  ? "No partner facilities are listed yet."
+                  : "Try a different search term or adjust your filters."}
               </p>
             </div>
           )}

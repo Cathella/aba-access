@@ -13,7 +13,6 @@ import {
   PartyPopper,
   LockKeyhole,
   ShieldAlert,
-  KeySquare,
   LockOpen,
   CircleCheckBig,
   LogOut,
@@ -80,16 +79,9 @@ const screens = [
   {
     id: "AUTH-08A",
     label: "Reset PIN",
-    desc: "Intro — send verification code",
+    desc: "Intro — confirm phone number",
     route: "/auth-08",
     icon: ShieldAlert,
-  },
-  {
-    id: "AUTH-08B",
-    label: "Verify OTP",
-    desc: "6-digit code for PIN reset",
-    route: "/auth-08b",
-    icon: KeySquare,
   },
   {
     id: "AUTH-08C",

@@ -9,98 +9,27 @@ import {
   Download,
   Share2,
   ChevronRight,
-  Package,
   MapPin,
   Smartphone,
 } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { BottomNav } from "../components/BottomNav";
-
-/* ══════════════════════════════════════════════
-   Types & data
-   ══════════════════════════════════════════════ */
-
-type TxType = "package" | "topup" | "oop";
-type TxStatus = "completed" | "pending" | "failed";
-
-interface TxDetail {
-  id: string;
-  type: TxType;
-  title: string;
-  amount: string;
-  amountSign: "credit" | "debit";
-  status: TxStatus;
-  date: string;
-  time: string;
-  /* Context fields */
-  packageName?: string;
-  packageValidity?: string;
-  method?: string;
-  phone?: string;
-  facility?: string;
-  patient?: string;
-  visitId?: string;
-}
-
-
-const txMap: Record<string, TxDetail> = {
-  "TX-00091": {
-    id: "TX-00091",
-    type: "package",
-    title: "Package purchase",
-    amount: "- UGX 50,000",
-    amountSign: "debit",
-    status: "completed",
-    date: "20 Feb 2026",
-    time: "2:34 PM",
-    packageName: "Care Bundle 50K",
-    packageValidity: "30 days",
-  },
-  "TX-00092": {
-    id: "TX-00092",
-    type: "topup",
-    title: "Top up",
-    amount: "+ UGX 20,000",
-    amountSign: "credit",
-    status: "pending",
-    date: "20 Feb 2026",
-    time: "1:10 PM",
-    method: "Airtel Money",
-    phone: "+256 7XX XXX XXX",
-  },
-  "TX-00088": {
-    id: "TX-00088",
-    type: "topup",
-    title: "Top up",
-    amount: "+ UGX 100,000",
-    amountSign: "credit",
-    status: "completed",
-    date: "19 Feb 2026",
-    time: "10:22 AM",
-    method: "MTN Mobile Money",
-    phone: "+256 7XX XXX XXX",
-  },
-  "TX-00074": {
-    id: "TX-00074",
-    type: "oop",
-    title: "Out-of-pocket",
-    amount: "- UGX 15,000",
-    amountSign: "debit",
-    status: "completed",
-    date: "12 Feb 2026",
-    time: "3:45 PM",
-    facility: "Sunrise Diagnostics",
-    patient: "Ben (Dependent)",
-    visitId: "V-000123",
-  },
-};
+import { supabase } from "../../lib/supabase";
+import {
+  formatTxDate,
+  formatTxTime,
+  formatUgx,
+  type WalletTransaction,
+  type WalletTxStatus,
+  type WalletTxType,
+} from "../../lib/wallet";
 
 /* ══════════════════════════════════════════════
    Helpers
    ══════════════════════════════════════════════ */
 
-function statusClasses(s: TxStatus) {
+function statusClasses(s: WalletTxStatus) {
   switch (s) {
     case "completed":
       return "bg-brand-success-50 text-brand-success-500";
@@ -111,13 +40,13 @@ function statusClasses(s: TxStatus) {
   }
 }
 
-function statusLabel(s: TxStatus) {
+function statusLabel(s: WalletTxStatus) {
   return s.charAt(0).toUpperCase() + s.slice(1);
 }
 
-function typeLabel(t: TxType) {
+function typeLabel(t: WalletTxType) {
   switch (t) {
-    case "package":
+    case "package_purchase":
       return "Package purchase";
     case "topup":
       return "Top up";
@@ -135,8 +64,29 @@ export function WAL04TransactionDetailPage() {
   const { txId } = useParams<{ txId: string }>();
   const { profile } = useAuth();
   const [copied, setCopied] = useState(false);
+  const [tx, setTx] = useState<WalletTransaction | null | undefined>(undefined);
 
-  const tx = txMap[txId ?? ""];
+  useEffect(() => {
+    if (!txId) {
+      setTx(null);
+      return;
+    }
+    supabase
+      .from("wallet_transactions")
+      .select("id, type, title, subtitle, amount_ugx, direction, status, created_at")
+      .eq("id", txId)
+      .maybeSingle()
+      .then(({ data }) => setTx(data ?? null));
+  }, [txId]);
+
+  /* Loading */
+  if (tx === undefined) {
+    return (
+      <div className="min-h-screen bg-brand-neutral-100 flex items-center justify-center">
+        <div className="w-5 h-5 rounded-full border-2 border-brand-primary-500 border-t-transparent animate-spin" />
+      </div>
+    );
+  }
 
   /* Fallback if ID not found */
   if (!tx) {
@@ -209,12 +159,12 @@ export function WAL04TransactionDetailPage() {
             <div className="flex flex-col items-center text-center mb-4">
               <div
                 className={`w-11 h-11 rounded-xl flex items-center justify-center mb-3 ${
-                  tx.amountSign === "credit"
+                  tx.direction === "credit"
                     ? "bg-brand-success-50"
                     : "bg-brand-neutral-100"
                 }`}
               >
-                {tx.amountSign === "credit" ? (
+                {tx.direction === "credit" ? (
                   <ArrowDownLeft size={20} className="text-brand-success-500" />
                 ) : (
                   <ArrowUpRight size={20} className="text-brand-neutral-700" />
@@ -222,13 +172,14 @@ export function WAL04TransactionDetailPage() {
               </div>
               <h3
                 className={`text-[26px] tracking-[-0.02em] mb-1 ${
-                  tx.amountSign === "credit"
+                  tx.direction === "credit"
                     ? "text-brand-success-500"
                     : "text-brand-neutral-900"
                 }`}
                 style={{ fontWeight: 600, lineHeight: 1.15 }}
               >
-                {tx.amount}
+                {tx.direction === "credit" ? "+ " : "- "}
+                {formatUgx(tx.amount_ugx)}
               </h3>
               <p
                 className="text-[13px] text-brand-neutral-500 mb-2"
@@ -251,7 +202,7 @@ export function WAL04TransactionDetailPage() {
 
             {/* Detail rows */}
             <div className="space-y-3">
-              <DetailRow label="Date" value={`${tx.date}, ${tx.time}`} />
+              <DetailRow label="Date" value={`${formatTxDate(tx.created_at)}, ${formatTxTime(tx.created_at)}`} />
               <DetailRow label="Reference" value={tx.id} />
               <div className="flex items-center justify-between">
                 <p
@@ -285,7 +236,7 @@ export function WAL04TransactionDetailPage() {
             Context card (dynamic)
            ───────────────────────────────────── */}
         <div className="px-5 pb-3">
-          {tx.type === "package" && (
+          {tx.type === "package_purchase" && (
             <div className="bg-brand-neutral-0 border border-brand-neutral-200 rounded-2xl p-4">
               <p
                 className="text-[12px] text-brand-neutral-500 mb-3"
@@ -294,43 +245,17 @@ export function WAL04TransactionDetailPage() {
                 PACKAGE DETAILS
               </p>
               <div className="space-y-2.5 mb-4">
-                <DetailRow label="Package" value={tx.packageName ?? ""} />
-                <DetailRow label="Validity" value={tx.packageValidity ?? ""} />
+                <DetailRow label="Package" value={tx.subtitle} />
               </div>
               <div className="border-t border-brand-neutral-200 pt-3">
                 <button
-                  onClick={() => navigate("/pkg-05")}
+                  onClick={() => navigate("/pkg-07")}
                   className="w-full text-[13px] text-brand-primary-500 hover:text-brand-primary-400 flex items-center justify-center gap-1.5 transition-colors"
                   style={{ fontWeight: 500 }}
                 >
                   View package
                 </button>
               </div>
-            </div>
-          )}
-
-          {tx.type === "oop" && (
-            <div className="bg-brand-neutral-0 border border-brand-neutral-200 rounded-2xl p-4">
-              <p
-                className="text-[12px] text-brand-neutral-500 mb-3"
-                style={{ fontWeight: 500, letterSpacing: "0.02em" }}
-              >
-                VISIT DETAILS
-              </p>
-              <div className="space-y-2.5 mb-4">
-                <DetailRow label="Facility" value={tx.facility ?? ""} />
-                <DetailRow label="Patient" value={tx.patient ?? ""} />
-                <DetailRow label="Visit ID" value={tx.visitId ?? ""} />
-              </div>
-              <button
-                onClick={() => navigate("/care-02")}
-                className="w-full h-10 bg-brand-neutral-0 hover:bg-brand-neutral-100 text-brand-neutral-900 border-[1.5px] border-brand-neutral-900 rounded-xl text-[13px] flex items-center justify-center gap-1.5 transition-colors"
-                style={{ fontWeight: 500 }}
-              >
-                <MapPin size={14} />
-                View visit
-                <ChevronRight size={13} className="text-brand-neutral-400" />
-              </button>
             </div>
           )}
 
@@ -343,8 +268,8 @@ export function WAL04TransactionDetailPage() {
                 TOP UP DETAILS
               </p>
               <div className="space-y-2.5 mb-3">
-                <DetailRow label="Method" value={tx.method ?? ""} />
-                <DetailRow label="From" value={tx.phone ?? ""} />
+                <DetailRow label="Method" value={tx.subtitle} />
+                <DetailRow label="From" value={profile.phone || "—"} />
               </div>
               <div className="flex items-start gap-2 px-0.5 pt-1">
                 <Smartphone
@@ -358,6 +283,29 @@ export function WAL04TransactionDetailPage() {
                   Top ups may take a few moments to reflect in your balance.
                 </p>
               </div>
+            </div>
+          )}
+
+          {tx.type === "oop" && (
+            <div className="bg-brand-neutral-0 border border-brand-neutral-200 rounded-2xl p-4">
+              <p
+                className="text-[12px] text-brand-neutral-500 mb-3"
+                style={{ fontWeight: 500, letterSpacing: "0.02em" }}
+              >
+                VISIT DETAILS
+              </p>
+              <div className="space-y-2.5 mb-4">
+                <DetailRow label="Facility" value={tx.subtitle} />
+              </div>
+              <button
+                onClick={() => navigate("/care-02")}
+                className="w-full h-10 bg-brand-neutral-0 hover:bg-brand-neutral-100 text-brand-neutral-900 border-[1.5px] border-brand-neutral-900 rounded-xl text-[13px] flex items-center justify-center gap-1.5 transition-colors"
+                style={{ fontWeight: 500 }}
+              >
+                <MapPin size={14} />
+                View visit
+                <ChevronRight size={13} className="text-brand-neutral-400" />
+              </button>
             </div>
           )}
         </div>

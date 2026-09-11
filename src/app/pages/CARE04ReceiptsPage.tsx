@@ -134,7 +134,7 @@ export function CARE04ReceiptsPage() {
                   </p>
                 </div>
                 <span className="text-[13px] text-brand-neutral-900 shrink-0 ml-3" style={{ fontWeight: 500 }}>
-                  {visit.covered ? "UGX 0" : "Settled"}
+                  {visit.covered ? "Included" : "Settled"}
                 </span>
               </div>
             </div>

@@ -1,10 +1,9 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router";
 import {
   ArrowLeft,
   Wallet,
   Smartphone,
-  Clock,
   AlertCircle,
   AlertTriangle,
   ChevronRight,
@@ -12,6 +11,7 @@ import {
 } from "lucide-react";
 import { supabase } from "../../lib/supabase";
 import { PACKAGE_CATALOG } from "../../lib/packageCatalog";
+import { computeBalance } from "../../lib/wallet";
 
 const packageDetails: Record<
   string,
@@ -43,7 +43,7 @@ const packageDetails: Record<
   },
 };
 
-type PaymentMethod = "aba-wallet" | "mobile-money" | "pay-later";
+type PaymentMethod = "aba-wallet" | "mobile-money";
 
 /* Parse "UGX 50,000" → 50000 */
 function parsePrice(s: string): number {
@@ -71,13 +71,6 @@ const paymentOptions: {
     badge: null,
     icon: <Smartphone size={16} />,
   },
-  {
-    id: "pay-later",
-    label: "Pay later",
-    caption: "Activate after payment",
-    badge: "Optional",
-    icon: <Clock size={16} />,
-  },
 ];
 
 export function PKG03CheckoutPage() {
@@ -97,8 +90,15 @@ export function PKG03CheckoutPage() {
   const [showError, setShowError] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState("");
+  const [walletBalance, setWalletBalance] = useState(0);
 
-  const walletBalance = 0;
+  useEffect(() => {
+    supabase
+      .from("wallet_transactions")
+      .select("amount_ugx, direction, status")
+      .then(({ data }) => setWalletBalance(computeBalance(data ?? [])));
+  }, []);
+
   const packagePrice = parsePrice(pkg.price);
   const isWalletSelected = selectedPayment === "aba-wallet";
   const insufficientFunds = isWalletSelected && walletBalance < packagePrice;
@@ -131,6 +131,19 @@ export function PKG03CheckoutPage() {
       });
 
       if (error) throw error;
+
+      if (isWalletSelected) {
+        await supabase.from("wallet_transactions").insert({
+          user_id: sessionData.session.user.id,
+          type: "package_purchase",
+          title: "Package purchase",
+          subtitle: catalogItem.name,
+          amount_ugx: catalogItem.priceUgx,
+          direction: "debit",
+          status: "completed",
+        });
+      }
+
       navigate(`/pkg-04?package=${packageId}`);
     } catch {
       setSubmitError("Failed to activate package. Please try again.");

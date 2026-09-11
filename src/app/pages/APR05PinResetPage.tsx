@@ -1,7 +1,6 @@
 import { useState } from "react";
 import { useNavigate, useSearchParams } from "react-router";
 import { useAuth } from "../../lib/auth-context";
-import { supabase } from "../../lib/supabase";
 import {
   ArrowLeft,
   KeyRound,
@@ -16,7 +15,7 @@ export function APR05PinResetPage() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const requestId = searchParams.get("id") ?? "";
-  const { profile } = useAuth();
+  const { profile, resetPinAuthenticated } = useAuth();
 
   const [step, setStep] = useState<Step>("intro");
   const [newPin, setNewPin] = useState("");
@@ -37,18 +36,13 @@ export function APR05PinResetPage() {
     if (digits !== confirmDigits) { setPinError("PINs do not match."); return; }
 
     setSaving(true);
-    const { error } = await supabase
-      .from("users")
-      .update({ pin_hash: btoa(digits) })
-      .eq("id", (await supabase.auth.getUser()).data.user?.id ?? "");
-
-    if (error) {
+    try {
+      await resetPinAuthenticated(digits);
+      navigate(`/apr-03?id=${requestId}&pinReset=1`);
+    } catch {
       setPinError("Failed to save PIN. Please try again.");
       setSaving(false);
-      return;
     }
-
-    navigate(`/apr-03?id=${requestId}&pinReset=1`);
   };
 
   const inputClass =

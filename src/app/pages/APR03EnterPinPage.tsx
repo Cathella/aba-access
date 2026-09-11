@@ -1,4 +1,4 @@
-import { useRef, useState, useEffect } from "react";
+import { useRef, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router";
 import { ArrowLeft, Lock, AlertCircle, CheckCircle2 } from "lucide-react";
 import { supabase } from "../../lib/supabase";
@@ -17,17 +17,10 @@ export function APR03EnterPinPage() {
   const pinWasReset = searchParams.get("pinReset") === "1";
 
   const [pin, setPin] = useState("");
-  const [pinHash, setPinHash] = useState<string | null>(null);
   const [error, setError] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [showResetBanner, setShowResetBanner] = useState(pinWasReset);
   const inputRef = useRef<HTMLInputElement>(null);
-
-  useEffect(() => {
-    supabase.from("users").select("pin_hash").maybeSingle().then(({ data }) => {
-      if (data?.pin_hash) setPinHash(data.pin_hash);
-    });
-  }, []);
 
   const handleChange = (value: string) => {
     const digits = value.replace(/\D/g, "").slice(0, PIN_LENGTH);
@@ -40,8 +33,9 @@ export function APR03EnterPinPage() {
 
     setSubmitting(true);
 
-    const enteredHash = btoa(pin);
-    if (pinHash && enteredHash !== pinHash) {
+    // Verified entirely server-side — the hash never reaches the browser
+    const { data: isValid, error: verifyError } = await supabase.rpc("verify_pin", { pin });
+    if (verifyError || !isValid) {
       setError(true);
       setPin("");
       setSubmitting(false);

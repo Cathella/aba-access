@@ -6,51 +6,23 @@ import {
   Info,
 } from "lucide-react";
 import { useState } from "react";
+import { PACKAGE_CATALOG } from "../../lib/packageCatalog";
 
 const filterChips = ["All", "Care Bundle", "Consultation", "Lab", "Pharmacy"];
 
-const packages = [
-  {
-    id: "care-bundle-50k",
-    name: "Care Bundle 50K",
-    category: "Care Bundle",
-    price: "UGX 50,000",
-    period: "30 days",
-    highlights: "6 consult visits • 3 lab tests • 10% pharmacy discount",
-    tag: "Best value",
-    note: "Share with up to 3 dependents",
-  },
-  {
-    id: "consultation-only-50k",
-    name: "Consultation Only 50K",
-    category: "Consultation",
-    price: "UGX 50,000",
-    period: "30 days",
-    highlights: "6 consultation visits",
-    tag: null,
-    note: "Up to 3 dependents",
-  },
-  {
-    id: "lab-only-30k",
-    name: "Lab Only 30K",
-    category: "Lab",
-    price: "UGX 30,000",
-    period: "30 days",
-    highlights: "5 lab tests",
-    tag: null,
-    note: null,
-  },
-  {
-    id: "pharmacy-only-20k",
-    name: "Pharmacy Only 20K",
-    category: "Pharmacy",
-    price: "UGX 20,000",
-    period: "30 days",
-    highlights: "10% discount up to UGX 20,000",
-    tag: null,
-    note: null,
-  },
-];
+function formatUgx(n: number) {
+  return `UGX ${n.toLocaleString()}`;
+}
+
+const packages = Object.entries(PACKAGE_CATALOG).map(([id, pkg]) => ({
+  id,
+  name: pkg.name,
+  category: pkg.category,
+  price: formatUgx(pkg.priceUgx),
+  highlights: pkg.highlights,
+  tag: pkg.tag,
+  note: pkg.note,
+}));
 
 export function PKG01PackagesHomePage() {
   const navigate = useNavigate();
@@ -146,7 +118,7 @@ export function PKG01PackagesHomePage() {
                   className="text-brand-neutral-500"
                   style={{ fontWeight: 400 }}
                 >
-                  / {pkg.period}
+                  / 30 days
                 </span>
               </div>
 
