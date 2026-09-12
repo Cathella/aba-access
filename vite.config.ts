@@ -5,6 +5,12 @@ import react from '@vitejs/plugin-react'
 import { VitePWA } from 'vite-plugin-pwa'
 
 export default defineConfig({
+  // Pinned so this app's own port stays predictable alongside aba-admin
+  // (5174) and aba-partner (5175, which aba-admin's invite links point at).
+  server: {
+    port: 5173,
+    strictPort: true,
+  },
   plugins: [
     react(),
     tailwindcss(),
