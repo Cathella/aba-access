@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { useNavigate, useSearchParams } from "react-router";
 import { CheckCircle, CalendarCheck, Home, Info } from "lucide-react";
-import { supabase } from "../../lib/supabase";
+import { fetchBooking, type Booking } from "../../lib/bookings";
 
 const TIME_LABELS: Record<string, string> = {
   morning: "Morning (8 am – 12 pm)",
@@ -24,15 +24,6 @@ function bookingRef(id: string): string {
   return `B-${id.slice(0, 6).toUpperCase()}`;
 }
 
-type Booking = {
-  id: string;
-  facility_name: string;
-  patient_name: string;
-  service: string;
-  preferred_date: string;
-  preferred_time: string;
-};
-
 export function BOOK02BookingSubmittedPage() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
@@ -43,15 +34,10 @@ export function BOOK02BookingSubmittedPage() {
 
   useEffect(() => {
     if (!bookingId) { setLoading(false); return; }
-    supabase
-      .from("bookings")
-      .select("id, facility_name, patient_name, service, preferred_date, preferred_time")
-      .eq("id", bookingId)
-      .single()
-      .then(({ data }) => {
-        setBooking(data ?? null);
-        setLoading(false);
-      });
+    fetchBooking(bookingId)
+      .then(setBooking)
+      .catch(() => setBooking(null))
+      .finally(() => setLoading(false));
   }, [bookingId]);
 
   const summaryRows = booking

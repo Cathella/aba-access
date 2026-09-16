@@ -13,19 +13,9 @@ import {
   CircleCheckBig,
   XCircle,
 } from "lucide-react";
-import { supabase } from "../../lib/supabase";
+import { fetchMyBookings, type Booking, type BookingStatus } from "../../lib/bookings";
 
 type Tab = "Upcoming" | "Past";
-
-type Booking = {
-  id: string;
-  facility_name: string;
-  patient_name: string;
-  service: string;
-  preferred_date: string;
-  preferred_time: string;
-  status: string;
-};
 
 const TIME_LABELS: Record<string, string> = {
   morning: "Morning",
@@ -54,42 +44,34 @@ const serviceIcon: Record<string, typeof Stethoscope> = {
   Pharmacy: Pill,
 };
 
-const statusConfig: Record<string, { bg: string; text: string; icon: typeof Clock; label: string }> = {
-  Pending: { bg: "bg-brand-neutral-100", text: "text-brand-neutral-600", icon: Clock, label: "Pending confirmation" },
-  Confirmed: { bg: "bg-brand-success-50", text: "text-brand-success-500", icon: CheckCircle2, label: "Confirmed" },
-  Completed: { bg: "bg-brand-success-50", text: "text-brand-success-500", icon: CircleCheckBig, label: "Completed" },
-  Declined: { bg: "bg-brand-error-50", text: "text-brand-error-500", icon: XCircle, label: "Declined" },
-  Cancelled: { bg: "bg-brand-neutral-100", text: "text-brand-neutral-500", icon: XCircle, label: "Cancelled" },
+const statusConfig: Record<BookingStatus, { bg: string; text: string; icon: typeof Clock; label: string }> = {
+  pending: { bg: "bg-brand-neutral-100", text: "text-brand-neutral-600", icon: Clock, label: "Pending confirmation" },
+  confirmed: { bg: "bg-brand-success-50", text: "text-brand-success-500", icon: CheckCircle2, label: "Confirmed" },
+  "reschedule-requested": { bg: "bg-brand-neutral-100", text: "text-brand-neutral-600", icon: Clock, label: "Reschedule requested" },
+  proposed: { bg: "bg-brand-neutral-100", text: "text-brand-neutral-600", icon: Clock, label: "New time proposed" },
+  completed: { bg: "bg-brand-success-50", text: "text-brand-success-500", icon: CircleCheckBig, label: "Completed" },
+  declined: { bg: "bg-brand-error-50", text: "text-brand-error-500", icon: XCircle, label: "Declined" },
+  cancelled: { bg: "bg-brand-neutral-100", text: "text-brand-neutral-500", icon: XCircle, label: "Cancelled" },
 };
 
-const UPCOMING_STATUSES = ["Pending", "Confirmed"];
-const PAST_STATUSES = ["Completed", "Declined", "Cancelled"];
+const UPCOMING_STATUSES: BookingStatus[] = ["pending", "confirmed", "reschedule-requested", "proposed"];
+const PAST_STATUSES: BookingStatus[] = ["completed", "declined", "cancelled"];
 
 export function BOOK03MyBookingsPage() {
   const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState<Tab>("Upcoming");
-  const [upcomingBookings, setUpcomingBookings] = useState<Booking[]>([]);
-  const [pastBookings, setPastBookings] = useState<Booking[]>([]);
+  const [bookings, setBookings] = useState<Booking[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    Promise.all([
-      supabase
-        .from("bookings")
-        .select("id, facility_name, patient_name, service, preferred_date, preferred_time, status")
-        .in("status", UPCOMING_STATUSES)
-        .order("created_at", { ascending: false }),
-      supabase
-        .from("bookings")
-        .select("id, facility_name, patient_name, service, preferred_date, preferred_time, status")
-        .in("status", PAST_STATUSES)
-        .order("created_at", { ascending: false }),
-    ]).then(([{ data: upcoming }, { data: past }]) => {
-      setUpcomingBookings(upcoming ?? []);
-      setPastBookings(past ?? []);
-      setLoading(false);
-    });
+    fetchMyBookings()
+      .then(setBookings)
+      .catch(() => setBookings([]))
+      .finally(() => setLoading(false));
   }, []);
+
+  const upcomingBookings = bookings.filter((b) => UPCOMING_STATUSES.includes(b.status));
+  const pastBookings = bookings.filter((b) => PAST_STATUSES.includes(b.status));
 
   const tabs: Tab[] = ["Upcoming", "Past"];
   const filtered = activeTab === "Upcoming" ? upcomingBookings : pastBookings;
@@ -143,7 +125,7 @@ export function BOOK03MyBookingsPage() {
           ) : filtered.length > 0 ? (
             filtered.map((b) => {
               const Icon = serviceIcon[b.service] ?? Stethoscope;
-              const chip = statusConfig[b.status] ?? statusConfig["Pending"];
+              const chip = statusConfig[b.status] ?? statusConfig["pending"];
               const ChipIcon = chip.icon;
 
               return (

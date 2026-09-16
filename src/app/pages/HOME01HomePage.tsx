@@ -165,7 +165,7 @@ export function HOME01HomePage() {
       supabase
         .from("bookings")
         .select("id", { count: "exact", head: true })
-        .in("status", ["Pending", "Confirmed"]),
+        .in("status", ["pending", "confirmed", "reschedule-requested", "proposed"]),
       supabase
         .from("wallet_transactions")
         .select("amount_ugx, direction, status"),

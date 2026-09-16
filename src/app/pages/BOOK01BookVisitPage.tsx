@@ -19,6 +19,7 @@ import {
 } from "lucide-react";
 import { useAuth } from "../../lib/auth-context";
 import { getGreetingName } from "../profileStore";
+import { createBooking } from "../../lib/bookings";
 
 /* ══════════════════════════════════════════════
    Facility type
@@ -509,27 +510,20 @@ export function BOOK01BookVisitPage() {
             setSubmitError("");
             setSubmitting(true);
             try {
-              const { data: sessionData } = await supabase.auth.getSession();
-              if (!sessionData?.session) throw new Error("No session");
               const patientName = patients.find((p) => p.id === selectedPatient)?.name ?? "";
-              const { data, error } = await supabase
-                .from("bookings")
-                .insert({
-                  user_id: sessionData.session.user.id,
-                  facility_id: facility!.id,
-                  facility_name: facility!.name,
-                  patient_id: selectedPatient,
-                  patient_name: patientName,
-                  service: effectiveService!,
-                  preferred_date: selectedDate,
-                  preferred_time: selectedTime,
-                  notes: notes.trim() || null,
-                  status: "Pending",
-                })
-                .select("id")
-                .single();
-              if (error) throw error;
-              navigate(`/book-02?id=${data.id}`);
+              const id = await createBooking({
+                facilityId: facility!.id,
+                facilityName: facility!.name,
+                patientId: selectedPatient,
+                patientName,
+                service: effectiveService!,
+                preferredDate: selectedDate,
+                preferredTime: selectedTime,
+                notes,
+                memberPhone: profile?.phone,
+                memberEmail: profile?.email,
+              });
+              navigate(`/book-02?id=${id}`);
             } catch {
               setSubmitError("Failed to send request. Please try again.");
             } finally {

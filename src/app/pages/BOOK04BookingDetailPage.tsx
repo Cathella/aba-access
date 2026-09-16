@@ -8,27 +8,22 @@ import {
   XCircle,
   Phone,
   CalendarClock,
+  CalendarDays,
   MapPin,
   Info,
+  Send,
   Stethoscope,
   FlaskConical,
   Pill,
 } from "lucide-react";
 import { supabase } from "../../lib/supabase";
+import { fetchBooking, cancelBooking, requestReschedule, type Booking, type BookingStatus } from "../../lib/bookings";
 
-type BookingStatus = "Pending" | "Confirmed" | "Declined" | "Completed" | "Cancelled";
-
-type Booking = {
-  id: string;
-  facility_id: string;
-  facility_name: string;
-  patient_name: string;
-  service: string;
-  preferred_date: string;
-  preferred_time: string;
-  notes: string | null;
-  status: BookingStatus;
-};
+const timeWindows = [
+  { id: "morning", label: "Morning", sub: "8 am – 12 pm" },
+  { id: "afternoon", label: "Afternoon", sub: "12 pm – 5 pm" },
+  { id: "evening", label: "Evening", sub: "5 pm – 9 pm" },
+] as const;
 
 const TIME_LABELS: Record<string, string> = {
   morning: "Morning (8 am – 12 pm)",
@@ -58,11 +53,13 @@ const serviceIcon: Record<string, typeof Stethoscope> = {
 };
 
 const statusChip: Record<BookingStatus, { bg: string; text: string; icon: typeof Clock; label: string }> = {
-  Pending: { bg: "bg-brand-neutral-100", text: "text-brand-neutral-600", icon: Clock, label: "Pending confirmation" },
-  Confirmed: { bg: "bg-brand-success-50", text: "text-brand-success-500", icon: CheckCircle2, label: "Confirmed" },
-  Declined: { bg: "bg-brand-error-50", text: "text-brand-error-500", icon: XCircle, label: "Declined" },
-  Completed: { bg: "bg-brand-success-50", text: "text-brand-success-500", icon: CircleCheckBig, label: "Completed" },
-  Cancelled: { bg: "bg-brand-neutral-100", text: "text-brand-neutral-500", icon: XCircle, label: "Cancelled" },
+  pending: { bg: "bg-brand-neutral-100", text: "text-brand-neutral-600", icon: Clock, label: "Pending confirmation" },
+  confirmed: { bg: "bg-brand-success-50", text: "text-brand-success-500", icon: CheckCircle2, label: "Confirmed" },
+  "reschedule-requested": { bg: "bg-brand-neutral-100", text: "text-brand-neutral-600", icon: Clock, label: "Reschedule requested" },
+  proposed: { bg: "bg-brand-neutral-100", text: "text-brand-neutral-600", icon: Clock, label: "New time proposed" },
+  declined: { bg: "bg-brand-error-50", text: "text-brand-error-500", icon: XCircle, label: "Declined" },
+  completed: { bg: "bg-brand-success-50", text: "text-brand-success-500", icon: CircleCheckBig, label: "Completed" },
+  cancelled: { bg: "bg-brand-neutral-100", text: "text-brand-neutral-500", icon: XCircle, label: "Cancelled" },
 };
 
 export function BOOK04BookingDetailPage() {
@@ -77,15 +74,19 @@ export function BOOK04BookingDetailPage() {
   const [cancelling, setCancelling] = useState(false);
   const [cancelError, setCancelError] = useState("");
 
+  const [showReschedule, setShowReschedule] = useState(false);
+  const [rescheduleDate, setRescheduleDate] = useState("Today");
+  const [customDate, setCustomDate] = useState("");
+  const [showDateInput, setShowDateInput] = useState(false);
+  const [rescheduleTime, setRescheduleTime] = useState("morning");
+  const [rescheduling, setRescheduling] = useState(false);
+  const [rescheduleError, setRescheduleError] = useState("");
+
   useEffect(() => {
     if (!bookingId) { setLoading(false); return; }
-    supabase
-      .from("bookings")
-      .select("id, facility_id, facility_name, patient_name, service, preferred_date, preferred_time, notes, status")
-      .eq("id", bookingId)
-      .single()
-      .then(({ data }) => {
-        setBooking(data ?? null);
+    fetchBooking(bookingId)
+      .then((data) => {
+        setBooking(data);
         setLoading(false);
         if (data?.facility_id) {
           supabase
@@ -95,6 +96,10 @@ export function BOOK04BookingDetailPage() {
             .maybeSingle()
             .then(({ data: facilityData }) => setFacilityPhone(facilityData?.phone ?? null));
         }
+      })
+      .catch(() => {
+        setBooking(null);
+        setLoading(false);
       });
   }, [bookingId]);
 
@@ -102,15 +107,28 @@ export function BOOK04BookingDetailPage() {
     if (!booking) return;
     setCancelError("");
     setCancelling(true);
-    const { error } = await supabase
-      .from("bookings")
-      .update({ status: "Cancelled" })
-      .eq("id", booking.id);
-    if (error) {
+    try {
+      await cancelBooking(booking.id);
+      navigate("/book-03", { replace: true });
+    } catch {
       setCancelError("Failed to cancel. Please try again.");
       setCancelling(false);
-    } else {
-      navigate("/book-03", { replace: true });
+    }
+  };
+
+  const handleRescheduleSubmit = async () => {
+    if (!booking) return;
+    setRescheduleError("");
+    setRescheduling(true);
+    try {
+      await requestReschedule(booking.id, rescheduleDate, rescheduleTime);
+      const updated = await fetchBooking(booking.id);
+      setBooking(updated);
+      setShowReschedule(false);
+    } catch {
+      setRescheduleError("Failed to send reschedule request. Please try again.");
+    } finally {
+      setRescheduling(false);
     }
   };
 
@@ -130,7 +148,7 @@ export function BOOK04BookingDetailPage() {
     );
   }
 
-  const chip = statusChip[booking.status] ?? statusChip["Pending"];
+  const chip = statusChip[booking.status] ?? statusChip["pending"];
   const ChipIcon = chip.icon;
   const FacilityIcon = serviceIcon[booking.service] ?? Stethoscope;
 
@@ -139,7 +157,7 @@ export function BOOK04BookingDetailPage() {
     { label: "Patient", value: booking.patient_name },
     { label: "Service", value: booking.service },
     {
-      label: booking.status === "Confirmed" || booking.status === "Completed"
+      label: booking.status === "confirmed" || booking.status === "completed"
         ? "Scheduled time"
         : "Preferred window",
       value: `${formatBookingDate(booking.preferred_date)} · ${TIME_LABELS[booking.preferred_time] ?? booking.preferred_time}`,
@@ -147,7 +165,12 @@ export function BOOK04BookingDetailPage() {
     ...(booking.notes ? [{ label: "Notes", value: booking.notes }] : []),
   ];
 
-  const showActions = booking.status === "Pending" || booking.status === "Confirmed" || booking.status === "Declined";
+  const showActions =
+    booking.status === "pending" ||
+    booking.status === "confirmed" ||
+    booking.status === "reschedule-requested" ||
+    booking.status === "declined";
+  const isCustomDateSelected = rescheduleDate !== "Today" && rescheduleDate !== "Tomorrow";
 
   return (
     <div className="min-h-screen bg-brand-neutral-100 flex flex-col">
@@ -262,9 +285,104 @@ export function BOOK04BookingDetailPage() {
                 </button>
               </div>
             </div>
+          ) : showReschedule ? (
+            <div className="space-y-3">
+              <p className="text-[13px] text-brand-neutral-900 text-center" style={{ fontWeight: 500 }}>
+                Request a new date & time
+              </p>
+
+              <div className="flex items-center gap-2 flex-wrap">
+                <CalendarDays size={14} className="text-brand-neutral-400 shrink-0" />
+                {(["Today", "Tomorrow"] as const).map((d) => (
+                  <button
+                    key={d}
+                    onClick={() => { setRescheduleDate(d); setCustomDate(""); setShowDateInput(false); }}
+                    className={`px-3 py-1.5 rounded-lg text-[12px] transition-colors ${
+                      rescheduleDate === d
+                        ? "bg-brand-neutral-900 text-brand-neutral-0"
+                        : "bg-brand-neutral-100 text-brand-neutral-700 hover:bg-brand-neutral-200"
+                    }`}
+                    style={{ fontWeight: 500 }}
+                  >
+                    {d}
+                  </button>
+                ))}
+                <button
+                  onClick={() => setShowDateInput(true)}
+                  className={`px-3 py-1.5 rounded-lg text-[12px] transition-colors ${
+                    isCustomDateSelected
+                      ? "bg-brand-neutral-900 text-brand-neutral-0"
+                      : "bg-brand-neutral-100 text-brand-neutral-700 hover:bg-brand-neutral-200"
+                  }`}
+                  style={{ fontWeight: 500 }}
+                >
+                  {customDate ? formatBookingDate(customDate) : "Pick date"}
+                </button>
+              </div>
+
+              {showDateInput && (
+                <input
+                  type="date"
+                  autoFocus
+                  className="w-full h-10 px-3 bg-brand-neutral-0 border border-brand-neutral-200 rounded-xl text-[13px] text-brand-neutral-900 focus:outline-none focus:border-brand-primary-300 transition-colors"
+                  min={new Date().toISOString().split("T")[0]}
+                  value={customDate}
+                  onChange={(e) => {
+                    if (e.target.value) {
+                      setCustomDate(e.target.value);
+                      setRescheduleDate(e.target.value);
+                      setShowDateInput(false);
+                    }
+                  }}
+                />
+              )}
+
+              <div className="flex items-center gap-2">
+                {timeWindows.map((tw) => (
+                  <button
+                    key={tw.id}
+                    onClick={() => setRescheduleTime(tw.id)}
+                    className={`flex-1 px-2 py-2 rounded-lg text-[12px] transition-colors ${
+                      rescheduleTime === tw.id
+                        ? "bg-brand-primary-300 text-brand-neutral-900"
+                        : "bg-brand-neutral-100 text-brand-neutral-700 hover:bg-brand-neutral-200"
+                    }`}
+                    style={{ fontWeight: 500 }}
+                  >
+                    {tw.label}
+                  </button>
+                ))}
+              </div>
+
+              {rescheduleError && (
+                <p className="text-[12px] text-brand-error-500 text-center" style={{ fontWeight: 400 }}>
+                  {rescheduleError}
+                </p>
+              )}
+
+              <div className="flex gap-2.5">
+                <button
+                  onClick={() => { setShowReschedule(false); setRescheduleError(""); }}
+                  disabled={rescheduling}
+                  className="flex-1 min-h-[44px] bg-brand-neutral-200 hover:bg-brand-neutral-300 text-brand-neutral-900 rounded-xl text-[13px] transition-colors disabled:opacity-60"
+                  style={{ fontWeight: 500 }}
+                >
+                  Back
+                </button>
+                <button
+                  onClick={handleRescheduleSubmit}
+                  disabled={rescheduling}
+                  className="flex-1 min-h-[44px] bg-brand-primary-300 hover:bg-brand-primary-400 text-brand-neutral-900 rounded-xl text-[13px] flex items-center justify-center gap-1.5 transition-colors disabled:opacity-60"
+                  style={{ fontWeight: 500 }}
+                >
+                  <Send size={14} />
+                  {rescheduling ? "Sending…" : "Send request"}
+                </button>
+              </div>
+            </div>
           ) : (
             <div className="flex items-center gap-2.5">
-              {booking.status === "Pending" && (
+              {(booking.status === "pending" || booking.status === "reschedule-requested") && (
                 <button
                   onClick={() => setConfirmCancel(true)}
                   className="w-full min-h-[44px] bg-brand-error-50 hover:bg-brand-error-500/20 text-brand-neutral-900 border-[1.5px] border-brand-neutral-900 rounded-xl text-[13px] flex items-center justify-center gap-1.5 transition-colors"
@@ -275,10 +393,10 @@ export function BOOK04BookingDetailPage() {
                 </button>
               )}
 
-              {booking.status === "Confirmed" && (
+              {booking.status === "confirmed" && (
                 <>
                   <button
-                    onClick={() => navigate(`/book-01?facility=${booking.facility_id}`)}
+                    onClick={() => setShowReschedule(true)}
                     className="flex-1 min-h-[44px] bg-brand-neutral-0 hover:bg-brand-neutral-50 text-brand-neutral-900 border-[1.5px] border-brand-neutral-900 rounded-xl text-[13px] flex items-center justify-center gap-1.5 transition-colors"
                     style={{ fontWeight: 500 }}
                   >
@@ -307,7 +425,7 @@ export function BOOK04BookingDetailPage() {
                 </>
               )}
 
-              {booking.status === "Declined" && (
+              {booking.status === "declined" && (
                 <button
                   onClick={() => navigate("/fac-01")}
                   className="w-full min-h-[44px] bg-brand-primary-300 hover:bg-brand-primary-400 text-brand-neutral-900 border-[1.5px] border-brand-neutral-900 rounded-xl text-[13px] flex items-center justify-center gap-1.5 transition-colors"
